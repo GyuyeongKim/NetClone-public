@@ -68,8 +68,8 @@ To evaluate LAEDGE, one node should be the coordinator. To run the coordinator, 
 `Usage: ./client NUM_SRV Protocol Distribution TIME_EXP TARGET_QPS`<br>
 `NUM_SRV`: The number of server nodes.<br>
 `Protocol`: The ID of protocols to use. Same as in the server-side one.<br>
-`Distribution`: Same as in the server-side one, but this is only for the naming of the log file.
-`TIME_EXP`: The experiment time. Set this to more than 20 because there is a warm-up effect at the early phase of the experiment.
+`Distribution`: Same as in the server-side one, but this is only for the naming of the log file.<br>
+`TIME_EXP`: The experiment time. Set this to more than 20 because there is a warm-up effect at the early phase of the experiment.<br>
 `TARGET_QPS`: The target throughput (=Tx throughput).
 
 For example, to reproduce a result of NetClone in Figure 7 (a), use the following command:<br>

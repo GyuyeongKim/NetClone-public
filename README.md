@@ -27,6 +27,7 @@ Our artifact is tested on:
 ## Client/Server-side
 1. Place `client.c`, `server.c`, and `Makefile` in the home directory (We used /home/netclone in the paper).
 2. Configure cluster-related details in `cleint.c` and `server.c`, such as IP and MAC addresses. Note that IP configuration is important in this artifact. Each node should have a linearly-increasing IP address. For example, we use 10.0.1.101 for node1, 10.0.1.102 for node2, ... See Client/Server-side in the Experiment workflow section for more detail.
+3. Compile `client.c` and `server.c` using `make`.
 
 ## Switch-side
 1. Place `controller.py` and `netclone.p4` in the SDE directory.

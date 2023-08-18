@@ -28,10 +28,8 @@
 #define CLICLONE 1 // C-Clone
 #define LAEDGE 2
 #define NETCLONE 3
-#define OP_READ 0
-#define OP_R_REPLY 1
-#define OP_WRITE 2
-#define OP_W_REPLY 3
+#define OP_REQ 0
+#define OP_RESP 1
 #define MAX_REQUESTS 100000000
 #define NUM_CLI 2
 #define COORDINATOR_ID 0 // server ID of LAEDGE coordinator
@@ -230,14 +228,14 @@ void *tx_t(void *arg){
       inet_pton(AF_INET, dst_ip[rand()%NUM_SRV], &srv_addr.sin_addr);
       srv_addr.sin_port = htons(NOCLONE_BASE_PORT);
       struct noclone_hdr SendBuffer={0,};
-      SendBuffer.op = htonl(OP_READ);
+      SendBuffer.op = htonl(OP_REQ);
       SendBuffer.latency = get_cur_ns();
 
       sendto(sock, &SendBuffer, sizeof(SendBuffer),  0, (struct sockaddr*)&(srv_addr), sizeof(srv_addr));
     }
     else if(PROTOCOL_ID == CLICLONE){
       struct cliclone_hdr SendBuffer={0,};
-      SendBuffer.op = htonl(OP_READ);
+      SendBuffer.op = htonl(OP_REQ);
       pthread_mutex_lock(&lock_counter);
       uint32_t temp = global_load_counter++;
       pthread_mutex_unlock(&lock_counter);
@@ -263,7 +261,7 @@ void *tx_t(void *arg){
       inet_pton(AF_INET, dst_ip[COORDINATOR_ID], &srv_addr.sin_addr);
       srv_addr.sin_port = htons(LAEDGE_BASE_PORT+ rand()%NUM_WORKERS_SRV);
       SendBuffer.cli_id = htonl(SERVER_ID);
-      SendBuffer.op = htonl(OP_READ);
+      SendBuffer.op = htonl(OP_REQ);
 
       pthread_mutex_lock(&lock_counter);
       uint32_t temp = global_load_counter++;
@@ -280,7 +278,7 @@ void *tx_t(void *arg){
 
       srv_addr.sin_port = htons(NETCLONE_BASE_PORT);
       struct netclone_hdr SendBuffer={0,};
-      SendBuffer.op = htonl(OP_READ);
+      SendBuffer.op = htonl(OP_REQ);
       SendBuffer.grp = htonl( rand()%NUM_GRP+1);
       SendBuffer.sid = htonl( rand()%NUM_SRV);
       SendBuffer.tidx = htonl( rand()%NUM_HASHTABLE);
@@ -353,7 +351,7 @@ void *rx_t(void *arg){
       struct noclone_hdr RecvBuffer;
       int n = recvfrom(sock, &RecvBuffer, sizeof(RecvBuffer), MSG_DONTWAIT, (struct sockaddr*)&(cli_addr), &cli_addr_len);
       if(n>0){
-        if(ntohl(RecvBuffer.op) == OP_R_REPLY){
+        if(ntohl(RecvBuffer.op) == OP_RESP){
           fprintf(fd,"%lu\n",(get_cur_ns() - RecvBuffer.latency)/1000);
           local_pkt_counter[i]++;
           timer = get_cur_ns();
@@ -364,7 +362,7 @@ void *rx_t(void *arg){
       struct cliclone_hdr RecvBuffer;
       int n = recvfrom(sock, &RecvBuffer, sizeof(RecvBuffer), MSG_DONTWAIT, (struct sockaddr*)&(cli_addr), &cli_addr_len);
       if(n>0){
-        if(ntohl(RecvBuffer.op) == OP_R_REPLY){
+        if(ntohl(RecvBuffer.op) == OP_RESP){
 
           pthread_mutex_lock(&lock_filter_read);
           bool redun = redundnacy_filter[RecvBuffer.seq];
@@ -385,7 +383,7 @@ void *rx_t(void *arg){
       struct laedge_hdr RecvBuffer;
       int n = recvfrom(sock, &RecvBuffer, sizeof(RecvBuffer), MSG_DONTWAIT, (struct sockaddr*)&(cli_addr), &cli_addr_len);
       if(n>0){
-        if(ntohl(RecvBuffer.op) == OP_R_REPLY){
+        if(ntohl(RecvBuffer.op) == OP_RESP){
     			fprintf(fd,"%lu\n",(get_cur_ns() - RecvBuffer.latency)/1000);
     			local_pkt_counter[i]++;
     			timer = get_cur_ns();
@@ -396,7 +394,7 @@ void *rx_t(void *arg){
       struct netclone_hdr RecvBuffer;
       int n = recvfrom(sock, &RecvBuffer, sizeof(RecvBuffer), MSG_DONTWAIT, (struct sockaddr*)&(cli_addr), &cli_addr_len);
       if(n>0){
-        if(ntohl(RecvBuffer.op) == OP_R_REPLY){
+        if(ntohl(RecvBuffer.op) == OP_RESP){
           RecvBuffer.seq = ntohl(RecvBuffer.seq);
           pthread_mutex_lock(&lock_filter_read);
           bool redun = redundnacy_filter[RecvBuffer.seq];

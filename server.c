@@ -30,10 +30,8 @@
 #define LAEDGE 2
 #define NETCLONE 3
 #define LAEDGE_COORDINATOR 99 // Coordinator용
-#define OP_READ 0
-#define OP_R_REPLY 1
-#define OP_WRITE 2
-#define OP_W_REPLY 3
+#define OP_REQ 0
+#define OP_RESP 1
 #define NUM_CLI 2
 #define NUM_SRV 5 // For Laedge coordination. since coordinator is 1, the remaining servers are 5.
 #define BUSY 1
@@ -154,7 +152,7 @@ struct netclone_hdr{
   uint32_t grp;
   uint32_t sid;
   uint32_t load;
-  uint32_t clo; 
+  uint32_t clo;
   uint32_t tidx;
   uint64_t latency;
 	struct sockaddr_in cli_addr;
@@ -365,7 +363,7 @@ void *coordinator_t(void *arg){
 
       if(n>0){
 
-        if(ntohl(RecvBuffer.op) == OP_READ ){
+        if(ntohl(RecvBuffer.op) == OP_REQ ){
           int cnt = 0;
           for(k=0;k<NUM_SRV;k++){
             if(SERVER_STATE[k] == IDLE){
@@ -419,7 +417,7 @@ void *coordinator_t(void *arg){
           }
 
         }
-        else if(ntohl(RecvBuffer.op) == OP_R_REPLY){
+        else if(ntohl(RecvBuffer.op) == OP_RESP){
 
           pthread_mutex_lock(&lock_filter_read);
           bool redun = false;
@@ -448,7 +446,7 @@ void *coordinator_t(void *arg){
           int not_empty = queue_pop(&q,&SendBuffer,sizeof(SendBuffer));
           pthread_mutex_unlock(&lock_laedge);
           if(not_empty == 1){
-            SendBuffer.op = htonl(OP_READ);
+            SendBuffer.op = htonl(OP_REQ);
 
             cli_addr.sin_port = htons(NOCLONE_BASE_PORT);
             sendto(sock, &SendBuffer, sizeof(SendBuffer),  0, (struct sockaddr *)&(cli_addr), sizeof(cli_addr));
@@ -528,7 +526,7 @@ void *worker_t(void *arg){
                 asm volatile ("nop");
                 i++;
             } while (i / 0.197 < (double) run_ns);
-  					RecvBuffer.op = htonl(OP_R_REPLY);
+  					RecvBuffer.op = htonl(OP_RESP);
   					sendto(sock, &RecvBuffer, sizeof(RecvBuffer),  0,  (struct sockaddr *)&(RecvBuffer.cli_addr), sizeof(RecvBuffer.cli_addr));
   				}
         }
@@ -551,7 +549,7 @@ void *worker_t(void *arg){
                 asm volatile ("nop");
                 i++;
             } while (i / 0.197 < (double) run_ns);
-  					RecvBuffer.op = htonl(OP_R_REPLY);
+  					RecvBuffer.op = htonl(OP_RESP);
   					sendto(sock, &RecvBuffer, sizeof(RecvBuffer),  0,  (struct sockaddr *)&(RecvBuffer.cli_addr), sizeof(RecvBuffer.cli_addr));
 
   				}
@@ -575,7 +573,7 @@ void *worker_t(void *arg){
                 asm volatile ("nop");
                 i++;
             } while (i / 0.197 < (double) run_ns);
-            RecvBuffer.op = htonl(OP_R_REPLY);
+            RecvBuffer.op = htonl(OP_RESP);
             RecvBuffer.srv_id = htonl(SERVER_ID-SRV_START_IDX);
   					sendto(sock, &RecvBuffer, sizeof(RecvBuffer),  0,  (struct sockaddr *)&(RecvBuffer.cli_addr), sizeof(RecvBuffer.cli_addr));
   				}
@@ -601,7 +599,7 @@ void *worker_t(void *arg){
                 i++;
             } while (i / 0.197 < (double) run_ns);
             RecvBuffer.load = htonl(queue_length(&job_queue));
-  					RecvBuffer.op = htonl(OP_R_REPLY);
+  					RecvBuffer.op = htonl(OP_RESP);
   					RecvBuffer.sid = htonl(SERVER_ID - SRV_START_IDX);
   					sendto(sock, &RecvBuffer, sizeof(RecvBuffer),  0,  (struct sockaddr *)&(RecvBuffer.cli_addr), sizeof(RecvBuffer.cli_addr));
   				}

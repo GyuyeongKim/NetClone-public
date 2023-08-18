@@ -4,10 +4,8 @@
 #else
 #include <tna.p4>
 #endif
-#define OP_READ 0
-#define OP_R_REPLY 1
-#define OP_WRITE 2
-#define OP_W_REPLY 3
+#define OP_REQ 0
+#define OP_RESP 1
 #define MAX_OBJ 131072
 #define MAX_SRV 6
 #define MAX_SEQ 100000000
@@ -561,7 +559,7 @@ control SwitchIngress(
                 ig_md.srv2pass = 0;
                 hdr.udp.checksum = 0; // Disable UDP checksum.
                 ig_md.racksched = read_racksched.execute(0);
-                if(hdr.netclone.op == OP_READ){
+                if(hdr.netclone.op == OP_REQ){
                     inc_seq_table.apply();
                     get_srvID_table.apply();
                     read_srv1_table.apply();
@@ -588,10 +586,10 @@ control SwitchIngress(
                         ipv4_exact.apply();
                     }
                 }
-                else if(hdr.netclone.op == OP_R_REPLY){
+                else if(hdr.netclone.op == OP_RESP){
                     update_srv_table.apply();
                     update_srv2_table.apply();
-                    if(hdr.netclone.clo > 0){ 
+                    if(hdr.netclone.clo > 0){
                         get_hash_table.apply();
                         if(hdr.netclone.tidx == 0) update_list_table.apply();
                         else if(hdr.netclone.tidx == 1) update_list_table2.apply();

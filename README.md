@@ -82,7 +82,6 @@ For example, to reproduce a result of NetClone in Figure 7 (a), use the followin
 # Citation
 
 Please cite this work if you refer to or use any part of this artifact for your research. 
-Page numbers (pp. xxxx-xxxx) will be added after the proceeding is published.
 
 BibTex:
 
@@ -95,4 +94,5 @@ BibTex:
          month = sep,
          publisher = {Association for Computing Machinery},
          numpages = {13},
+         pages ={195–207},
       } 

@@ -37,12 +37,20 @@ Our artifact is tested on:
 - python 3.8.10
 - Intel P4 Studio SDE 9.7.0 and BSP 9.7.0. 
 
+# Testbed illustration
+
+![Testbed](https://github.com/GyuyeongKim/NetClone-public/blob/19a712c89af3f354aff36299638502070def88ca/testbednetclone.png)
+
 # Installation
 
 ## Client/Server-side
-1. Place `client.c`, `server.c`, and `Makefile` in the home directory (We used /home/netclone in the paper).
-2. Configure cluster-related details in `cleint.c` and `server.c`, such as IP and MAC addresses. Note that IP configuration is important in this artifact. Each node should have a linearly-increasing IP address. For example, we use 10.0.1.101 for node1, 10.0.1.102 for node2, ... See Client/Server-side in the Experiment workflow section for more detail.
-3. Compile `client.c` and `server.c` using `make`.
+1. Place `client.c`, `server.c`, and `Makefile` in the home directory (We used `/home/netclone` in the paper).
+2. Configure cluster-related details in `client.c` and `server.c`, such as IP and MAC addresses. Note that IP configuration is important in this artifact. Each node should have a linearly-increasing IP address. For example, we use 10.0.1.101 for node1, 10.0.1.102 for node2, and so on. This is because the server program automatically assigns the server ID using the last digit of the IP address. e.g., for 10.0.1.103, the server ID is 3 (cuz the last digit of .103 is 3).
+   client.c
+   - Line 26 MAX_SRV // the maximum number of servers in the testbed
+   - Line 34 NUM_CLI // the number of clients
+   - Line 183~212 src_ip and dst_ip arrays. 
+4. Compile `client.c` and `server.c` using `make`.
 
 ## Switch-side
 1. Place `controller.py` and `netclone.p4` in the SDE directory.

@@ -46,28 +46,49 @@ Our artifact is tested on:
 ## Client/Server-side
 1. Place `client.c`, `server.c`, and `Makefile` in the home directory (We used `/home/netclone` in the paper).
 2. Configure cluster-related details in `client.c` and `server.c`, such as IP and MAC addresses. Note that IP configuration is important in this artifact. Each node should have a linearly-increasing IP address. For example, we use 10.0.1.101 for node1, 10.0.1.102 for node2, and so on. This is because the server program automatically assigns the server ID using the last digit of the IP address. e.g., for 10.0.1.103, the server ID is 3 (cuz the last digit of .103 is 3).
-   client.c
+
+   `client.c`
+   
    - Line 26 MAX_SRV // the maximum number of servers in the testbed
    - Line 34 NUM_CLI // the number of clients
-   - Line 183~212 src_ip and dst_ip arrays. 
+   - Lines 183~212 // src_ip and dst_ip arrays.
+   - Lines 442~445 //Please set the interface name correctly. By default, it is set to `enp1s0np0`.
+
+    `server.c`
+
+   - Lines 281~289 // src_ip and dst_ip arrays for LAEDGE coordinators.
+   - Lines 707~711 //Please set the interface name correctly. By default, it is set to `enp1s0np0`
 4. Compile `client.c` and `server.c` using `make`.
 
 ## Switch-side
 1. Place `controller.py` and `netclone.p4` in the SDE directory.
-2. Compile `netclone.p4` using the P4 compiler (we used `p4build.sh` provided by Intel).
-3. Configure cluster-related information in the `netclone.p4`.
-4. Configure cluster-related information in the `controller.py`. This includes IP and MAC addresses, and port-related information. 
+2. Configure cluster-related information in the `netclone.p4`.
+   - Line 10 MAX_SRV // the maximum number of servers in the testbed
+   - Line 552 ig_initr_md.ingress_port // we currently use 452 for recirculation. 452 is the recirculation port for pipeline 3 in our APS BF6064XT. Check your switch spec and set it correctly. 
+3. Configure cluster-related information in the `controller.py`. This includes IP and MAC addresses, and port-related information.
+   - Lines 21~25 // Several cluster-related values
+   - Lines 104~137 // IP, Port, MAC information. The last address is the port of the switch control plane (but NetClone does not use it. so you can remove it).
+   - Lines 162~484// Cloning-related configuration. The number of entries in the tables depends on the number of servers.
+4. Compile `netclone.p4` using the P4 compiler (we used `p4build.sh` provided by Intel). You can compile it manually with the following commands.
+   - `cmake ${SDE}/p4studio -DCMAKE_INSTALL_PREFIX=${SDE_INSTALL} -DCMAKE_MODULE_PATH=${SDE}/cmake -DP4_NAME=netclone -DP4_PATH=${SDE}/netclone.p4`
+   - `make`
+   - `make install`
+   - `${SDE}` and `${SDE_INSTALL}` are path to the SDE. In our testbed, SDE = `/home/admin/bf-sde-9.7.0`  and SDE_INSTALL = `/home/admin/bf-sde-9.7.0/install`.
 
 # Experiment workflow
 ## Switch-side
+0. Open three terminals for the switch control plane. We need them for 1) starting the switch program, 2) port configruation, 3) rule configuration by controller
 1. Run NetClone program using `run_switchd.sh -p netclone` in the SDE directory. `run_switch.sh` is included in the SDE by default.
-2. Configure ports manually or run_bfshell.sh in the other terminal. It is recommended to configure ports to 100Gbps.
-3. Run the controller using `python3 controller.py` in the SDE directory.
+2. Configure ports manually or `run_bfshell.sh` in the other terminal. It is recommended to configure ports to 100Gbps.
+ - After starting the switch program, run `./run_bfsheel.sh` and type `ucli` and `pm`.
+ - You can create ports like `port-add #/- 100G NONE` and `port-enb #/-`. It is recommended to turn off auto-negotiation using `an-set -/- 2`. This part requires knowledge of Intel Tofino-related stuff. You can find more information in the switch manual or on Intel websites.
+4. Run the controller using `python3 controller.py` in the SDE directory at the other terminal.
 
 ## Client/Server-side
-1. Make sure your ARP table and IP configuration are correct. The provided switch code does not concern the network setup of hosts. Therefore, you should do network configuration in hosts manually. Also, please double check the cluster-related information in the codes is configured correctly.
-2. Make sure each node can communicate by using tools like `ping`.
-3. Configure VMA-related stuffs like socket buffers, hugepages, etc. The following commands must be executed in all nodes. <br>
+1. Make sure your ARP table and IP configuration are correct. The provided switch code does not concern the network setup of hosts. Therefore, you should do network configuration in hosts manually. Also, please double-check check the cluster-related information in the codes is configured correctly.
+   - You can set the arp rule using `arp -s IP_ADDRESS MAC_ADDRESS`. For example, type `arp -s 10.0.1.101 0c:42:a1:2f:12:e6` in node 2~8 for node 1.
+3. Make sure each node can communicate by using tools like `ping`. e.g., `ping 10.0.1.101` in other nodes.
+4. Configure VMA-related stuffs like socket buffers, hugepages, etc. The following commands must be executed in all nodes. <br>
 `sysctl -w net.core.rmem_max=104857600 && sysctl -w net.core.rmem_default=104857600` <br>
 `echo 2000000000 > /proc/sys/kernel/shmmax` <br>
 `echo 2048 > /proc/sys/vm/nr_hugepages` <br>

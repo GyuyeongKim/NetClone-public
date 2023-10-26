@@ -18,6 +18,7 @@ This repository contains the following code segments:
 - To run experiments using the artifact, at least 3 nodes (1 client and 2 servers) are required. However, it is recommended to use more nodes because the benefit may not be much in a small cluster. 
 - Nodes should be equipped with an Nvidia ConnectX-5 NIC or similar NIC supporting Nvidia VMA for kernel-bypass networking. Experiments can still be run without the VMA-capable NICs, but this may result in increased latency and decreased throughput due to the application's reliance on a legacy network stack. 
 - A programmable switch with Intel Tofino1 ASIC is needed.
+
 Our artifact is tested on:
 - 6 nodes (2 clients and 4 servers) with single-port Nvidia 100GbE MCX515A-CCAT ConnectX-5 NIC
 - APS BF6064XT switch with Intel Tofino1 ASIC

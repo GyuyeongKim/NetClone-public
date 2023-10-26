@@ -1,5 +1,7 @@
 # Overview
 This is the artifact that is used to evaluate NetClone, as described in the paper "NetClone: Fast, Scalable, and Dynamic Request Cloning for Microsecond-Scale RPCs" in ACM SIGCOMM 2023.
+NetClone is an in-network dynamic request cloning mechanism for microsecond-scale workloads. With Netclone, the switch dynamically duplicates requests to two idle servers and returns only a faster response to the client.
+With this, the client can enjoy low tail latency even if there is unexpected latency variability in servers. 
 
 # Contents
 
@@ -9,18 +11,30 @@ This repository contains the following code segments:
 2. Switch control plane code
 3. Client and server applications with synthetic RPC workloads.
 
+# Contents
+
 # Hardware dependencies
 
-- To run experiments using the artifact, at least 3 nodes (1 client and 2 servers) are required. However, it is recommended to use more nodes because the benefit may not be much in a small cluster. The experiments in the paper were conducted using 8 nodes (2 clients and 6 servers). 
-- Nodes should be equipped with an Nvidia ConnectX-5 NIC or similar NIC supporting Nvidia VMA. Experiments can still be run without the CX5 NICs, but this may result in increased latency and decreased throughput due to the application's reliance on a legacy network stack.
-- A programmable switch with Intel Tofino ASIC is needed.
+- To run experiments using the artifact, at least 3 nodes (1 client and 2 servers) are required. However, it is recommended to use more nodes because the benefit may not be much in a small cluster. 
+- Nodes should be equipped with an Nvidia ConnectX-5 NIC or similar NIC supporting Nvidia VMA for kernel-bypass networking. Experiments can still be run without the VMA-capable NICs, but this may result in increased latency and decreased throughput due to the application's reliance on a legacy network stack. 
+- A programmable switch with Intel Tofino1 ASIC is needed.
+Our artifact is tested on:
+- 6 nodes (2 clients and 4 servers) with single-port Nvidia 100GbE MCX515A-CCAT ConnectX-5 NIC
+- APS BF6064XT switch with Intel Tofino1 ASIC
 
 # Software dependencies
 Our artifact is tested on:
+
+**Clients and servers:**
 - Ubuntu 20.04 LTS with Linux kernel 5.15.
 - Mellanox OFED drivers for NICs. The version is 5.8-1.2.1 LTS.
+- gcc 9.4.0
 - libvma 9.4.0 for VMA
-- Intel P4 Studio SDE 9.7.0 and BSP 9.7.0.
+
+**Switch:**
+- Ubuntu 20.04 LTS with Linux kernel 5.4.
+- python 3.8.10
+- Intel P4 Studio SDE 9.7.0 and BSP 9.7.0. 
 
 # Installation
 

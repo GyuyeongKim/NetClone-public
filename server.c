@@ -29,7 +29,7 @@
 #define CLICLONE 1
 #define LAEDGE 2
 #define NETCLONE 3
-#define LAEDGE_COORDINATOR 99 // Coordinator용
+#define LAEDGE_COORDINATOR 99 // for Coordinator of LAEDGE
 #define OP_REQ 0
 #define OP_RESP 1
 #define NUM_CLI 2
@@ -257,9 +257,9 @@ struct Queue job_queue;
 
 struct arg_t {
   int sock;
-	int PROTOCOL_ID; // thread에 main 함수 argument를 넘기기 위함.
+	int PROTOCOL_ID; 
 	int SRV_START_IDX;
-	int SERVER_ID; // thread에 main 함수 argument를 넘기기 위함.
+	int SERVER_ID;
 	int NUM_WORKERS;
   int DIST;
 } __attribute__((packed));
@@ -276,7 +276,7 @@ void run_work(uint64_t run_ns, double probability, double multiple) {
 
 
 void *coordinator_t(void *arg){
-  srand(time(NULL)); // rand함수용 시드 초기화
+  srand(time(NULL)); 
   char* src_ip[NUM_CLI];
   src_ip[0] = "10.0.1.101";
   src_ip[1] = "10.0.1.102";
@@ -438,7 +438,7 @@ void *coordinator_t(void *arg){
             pthread_mutex_unlock(&lock_filter);
 
             inet_pton(AF_INET, src_ip[ntohl(RecvBuffer.cli_id)], &cli_addr2.sin_addr);
-            cli_addr2.sin_port = RecvBuffer.cli_port; // 포트를 저장함
+            cli_addr2.sin_port = RecvBuffer.cli_port; // save port information
             sendto(sock, &RecvBuffer, sizeof(RecvBuffer),  0, (struct sockaddr *)&(cli_addr2), sizeof(cli_addr2));
           }
 
@@ -504,7 +504,7 @@ void *worker_t(void *arg){
   int large = small*10; // 250us
   int vlarge = medium*10; // 500us
   double probability = 0.01;
-  //probability = 0.001;
+  //probability = 0.001; // for low variability experiments, use this.
   int multiple = 15;
 
 		if (PROTOCOL_ID == NOCLONE){
@@ -597,7 +597,8 @@ void *worker_t(void *arg){
             do {
                 asm volatile ("nop");
                 i++;
-            } while (i / 0.197 < (double) run_ns);
+            } while (i / 0.197 < (double) run_ns); // that '0.197' value determines the correctness of RPC runtime. you may tune the value if your CPU is different.
+
             RecvBuffer.load = htonl(queue_length(&job_queue));
   					RecvBuffer.op = htonl(OP_RESP);
   					RecvBuffer.sid = htonl(SERVER_ID - SRV_START_IDX);
@@ -738,14 +739,6 @@ int main(int argc, char *argv[]) {
 		close(sock);
 		exit(1);
 	}
-	int disable = 1;
-	if (setsockopt(sock, IPPROTO_IP, IP_PKTINFO, (void*)&disable, sizeof(disable)) < 0) {
-			printf("setsockopt failed\n");
-			close(sock);
-			exit(1);
-	}
-
-
 	struct arg_t args;
   args.sock = sock;
 	args.PROTOCOL_ID = PROTOCOL_ID;

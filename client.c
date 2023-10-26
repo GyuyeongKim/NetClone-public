@@ -24,13 +24,13 @@
 #define NOCLONE_BASE_PORT 2000
 #define LAEDGE_BASE_PORT 3000
 #define MAX_SRV 6
-#define NOCLONE 0
+#define NOCLONE 0 // Baseline, NoClone
 #define CLICLONE 1 // C-Clone
 #define LAEDGE 2
 #define NETCLONE 3
 #define OP_REQ 0
 #define OP_RESP 1
-#define MAX_REQUESTS 100000000
+#define MAX_REQUESTS 100000000 // limit of redundancy filter in clients. this is only for stats. you can increase this but you may face memory issues
 #define NUM_CLI 2
 #define COORDINATOR_ID 0 // server ID of LAEDGE coordinator
 pthread_mutex_t lock_filter_read = PTHREAD_MUTEX_INITIALIZER;
@@ -52,9 +52,6 @@ int tx_id = 0;
 pthread_mutex_t lock_rxid = PTHREAD_MUTEX_INITIALIZER;
 int rx_id = 0;
 pthread_mutex_t lock_create = PTHREAD_MUTEX_INITIALIZER;
-
-
-
 
 
 int combination(int n, int k) {
@@ -107,8 +104,8 @@ struct netclone_hdr{
   uint32_t load;
   uint32_t clo;
   uint32_t tidx;
-  uint64_t latency;
-	struct sockaddr_in cli_addr;
+  uint64_t latency; // only for stats
+	struct sockaddr_in cli_addr; // this field is for queueing in the server since we need client addr. we can exclude this field in fact.  
 } __attribute__((packed));
 
 #pragma pack(1)
@@ -164,7 +161,7 @@ void *tx_t(void *arg){
   struct arg_t *args = (struct arg_t *)arg;
   struct sockaddr_in srv_addr = args->srv_addr;
 
-  srand(time(NULL)); // rand함수용 시드 초기화
+  srand(time(NULL));
 	int cli_addr_len = 0;
   int n = 0;
   uint64_t elapsed_time = get_cur_ns();

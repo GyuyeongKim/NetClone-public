@@ -548,37 +548,36 @@ control SwitchIngress(
         }
     };
     apply {
-        /*************** NetLR Block START *****************************/
+        /*************** NetClone Block START *****************************/
             if (ig_intr_md.ingress_port == 452) { // Cloned recirculated packets
-                hdr.netclone.clo = 2;// Second packet
-                CloneForward_table.apply();
+                hdr.netclone.clo = 2;
+                CloneForward_table.apply(); // Rewrite dest. IP address
                 ipv4_exact.apply();
             }
             else if (hdr.netclone.isValid()) {
                 ig_md.srv1pass = 0;
                 ig_md.srv2pass = 0;
-                hdr.udp.checksum = 0; // Disable UDP checksum.
+                hdr.udp.checksum = 0; // Disable UDP checksum. If not, packts will be dropped in the network stack cuz we update udp header fields.
                 ig_md.racksched = read_racksched.execute(0);
-                if(hdr.netclone.op == OP_REQ){
+                if(hdr.netclone.op == OP_REQ){ // Request processing
                     inc_seq_table.apply();
                     get_srvID_table.apply();
                     read_srv1_table.apply();
-                    if(ig_md.racksched == 1){
+                    if(ig_md.racksched == 1){ // NetClone + RackSched // JSQ load balancing
                         if(ig_md.srv1pass == 0) ig_md.srv2pass = read_srv2_zero.execute(ig_md.srv2id);
                         else ig_md.srv2pass = read_srv2_nonzero.execute(ig_md.srv2id);
-
                     }
-                    else if(ig_md.racksched==0){
+                    else if(ig_md.racksched==0){ // NetClone only
                         if(ig_md.srv1pass == 0) ig_md.srv2pass = read_srv2_zero.execute(ig_md.srv2id);
                         else ig_md.srv2pass = 1;
 
                     }
                     else drop();
-                    if(ig_md.srv2pass == 0){
+                    if(ig_md.srv2pass == 0){ // Ready for cloning
                         update_dstIP_table.apply();
-                        hdr.netclone.clo = 1;
+                        hdr.netclone.clo = 1; 
                         hdr.netclone.sid = ig_md.srv2id;
-                        msg_cloning_table.apply();
+                        msg_cloning_table.apply(); 
                     }
                     else{
                         if(ig_md.srv2pass == 2) ig_md.srv1id = ig_md.srv2id;
@@ -586,22 +585,21 @@ control SwitchIngress(
                         ipv4_exact.apply();
                     }
                 }
-                else if(hdr.netclone.op == OP_RESP){
-                    update_srv_table.apply();
-                    update_srv2_table.apply();
-                    if(hdr.netclone.clo > 0){
-                        get_hash_table.apply();
+                else if(hdr.netclone.op == OP_RESP){ // Response processsing
+                    update_srv_table.apply(); // Update srv load in load table
+                    update_srv2_table.apply(); // Update srv load in shadow table
+                    if(hdr.netclone.clo > 0){ // is this cloned?
+                        get_hash_table.apply(); // then, get hash and trigger filtering function
                         if(hdr.netclone.tidx == 0) update_list_table.apply();
                         else if(hdr.netclone.tidx == 1) update_list_table2.apply();
-                        //else if(hdr.netclone.tidx == 2) update_list_table3.apply();
-                        //else if(hdr.netclone.tidx == 3) update_list_table4.apply();
+                        //else if(hdr.netclone.tidx == 2) update_list_table3.apply(); // You can use more filter tables if needed
+                        //else if(hdr.netclone.tidx == 3) update_list_table4.apply(); // You can use more filter tables if needed
                         else drop();
-                        if(ig_md.update_result == 1) drop();
-                        else ipv4_exact.apply();
+                        if(ig_md.update_result == 1) drop(); // Slower response
+                        else ipv4_exact.apply(); // Faster response
                     }
                     else ipv4_exact.apply();
                 }
-                else if(hdr.netclone.op == OP_WRITE || hdr.netclone.op == OP_W_REPLY) ipv4_exact.apply();
                 else drop();
             }
             else ipv4_exact.apply();

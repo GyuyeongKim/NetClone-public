@@ -74,7 +74,8 @@ Our artifact is tested on:
    - `make`
    - `make install`
    - `${SDE}` and `${SDE_INSTALL}` are path to the SDE. In our testbed, SDE = `/home/admin/bf-sde-9.7.0`  and SDE_INSTALL = `/home/admin/bf-sde-9.7.0/install`.
-
+   - If done well, you should see the following outputs
+     ![output](https://github.com/GyuyeongKim/NetClone-public/blob/0d9cb690f693a1b8b876c14cafa6def05713a5e2/output.png)
 # Experiment workflow
 ## Switch-side
 1. Open three terminals for the switch control plane. We need them for 1) starting the switch program, 2) port configuration, 3) rule configuration by controller

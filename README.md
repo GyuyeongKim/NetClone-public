@@ -77,15 +77,16 @@ Our artifact is tested on:
 
 # Experiment workflow
 ## Switch-side
-0. Open three terminals for the switch control plane. We need them for 1) starting the switch program, 2) port configruation, 3) rule configuration by controller
-1. Run NetClone program using `run_switchd.sh -p netclone` in the SDE directory. `run_switch.sh` is included in the SDE by default.
-2. Configure ports manually or `run_bfshell.sh` in the other terminal. It is recommended to configure ports to 100Gbps.
- - After starting the switch program, run `./run_bfsheel.sh` and type `ucli` and `pm`.
+1. Open three terminals for the switch control plane. We need them for 1) starting the switch program, 2) port configuration, 3) rule configuration by controller
+2. In terminal 1, run NetClone program using `run_switchd.sh -p netclone` in the SDE directory. `run_switch.sh` is included in the SDE by default.
+3. In terminal 2, configure ports manually or `run_bfshell.sh`. It is recommended to configure ports to 100Gbps.
+ - After starting the switch program, run `./run_bfshell.sh` and type `ucli` and `pm`.
  - You can create ports like `port-add #/- 100G NONE` and `port-enb #/-`. It is recommended to turn off auto-negotiation using `an-set -/- 2`. This part requires knowledge of Intel Tofino-related stuff. You can find more information in the switch manual or on Intel websites.
-4. Run the controller using `python3 controller.py` in the SDE directory at the other terminal.
+4. In terminal 3, run the controller using `python3 controller.py` in the SDE directory at the other terminal.
 
 ## Client/Server-side
-1. Make sure your ARP table and IP configuration are correct. The provided switch code does not concern the network setup of hosts. Therefore, you should do network configuration in hosts manually. Also, please double-check check the cluster-related information in the codes is configured correctly.
+1. Open terminals for each node. For example, we open 8 terminals for 8 nodes (2 clients and 4 servers).
+2. Make sure your ARP table and IP configuration are correct. The provided switch code does not concern the network setup of hosts. Therefore, you should do network configuration in hosts manually. Also, please double-check check the cluster-related information in the codes is configured correctly.
    - You can set the arp rule using `arp -s IP_ADDRESS MAC_ADDRESS`. For example, type `arp -s 10.0.1.101 0c:42:a1:2f:12:e6` in node 2~8 for node 1.
 3. Make sure each node can communicate by using tools like `ping`. e.g., `ping 10.0.1.101` in other nodes.
 4. Configure VMA-related stuffs like socket buffers, hugepages, etc. The following commands must be executed in all nodes. <br>
@@ -109,7 +110,7 @@ To evaluate LAEDGE, one node should be the coordinator. To run the coordinator, 
 `LD_PRELOAD=libvma.so VMA_THREAD_MODE=2 ./server 2 15 99 0`
 
 
-7. Turn on the client program in client nodes by using the following command. <br>
+6. Turn on the client program in client nodes by using the following command. <br>
 `Usage: ./client NUM_SRV Protocol Distribution TIME_EXP TARGET_QPS`<br>
 `NUM_SRV`: The number of server nodes.<br>
 `Protocol`: The ID of protocols to use. Same as in the server-side one.<br>
@@ -120,7 +121,7 @@ To evaluate LAEDGE, one node should be the coordinator. To run the coordinator, 
 For example, to reproduce a result of NetClone in Figure 7 (a), use the following command:<br>
 `LD_PRELOAD=libvma.so VMA_THREAD_MODE=2 ./client 6 3 0 20 1000000` <br>
 
-8. When the experiment is finished, the clients report Tx/Rx throughput, experiment time, and other related information. Request latency is logged as a text file like `log-0-0-0-6-15-1-1-20-103000.txt`. The end line of the log contains the total experiment time. Therefore, when you analyze the log, you should be careful.
+7. When the experiment is finished, the clients report Tx/Rx throughput, experiment time, and other related information. Request latency is logged as a text file like `log-0-0-0-6-15-1-1-20-103000.txt`. The end line of the log contains the total experiment time. Therefore, when you analyze the log, you should be careful.
 
 
 # Citation

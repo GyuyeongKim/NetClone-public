@@ -39,7 +39,7 @@ Our artifact is tested on:
 
 # Testbed illustration
 
-![Testbed](https://github.com/GyuyeongKim/NetClone-public/blob/19a712c89af3f354aff36299638502070def88ca/testbednetclone.png)
+![Testbed](testbednetclone.png)
 
 # Installation
 

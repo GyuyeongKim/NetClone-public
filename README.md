@@ -81,10 +81,96 @@ Our artifact is tested on:
 ## Switch-side
 1. Open three terminals for the switch control plane. We need them for 1) starting the switch program, 2) port configuration, 3) rule configuration by controller
 2. In terminal 1, run NetClone program using `run_switchd.sh -p netclone` in the SDE directory. `run_switch.sh` is included in the SDE by default.
-3. In terminal 2, configure ports manually or `run_bfshell.sh`. It is recommended to configure ports to 100Gbps.
+- The output should be like...
+```
+Using SDE /home/admin/bf-sde-9.7.0
+Using SDE_INSTALL /home/admin/bf-sde-9.7.0/install
+Setting up DMA Memory Pool
+Using TARGET_CONFIG_FILE /home/admin/bf-sde-9.7.0/install/share/p4/targets/tofino/netclone.conf
+Using PATH /home/admin/bf-sde-9.7.0/install/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/home/admin/bf-sde-9.7.0/install/bin
+Using LD_LIBRARY_PATH /usr/local/lib:/home/admin/bf-sde-9.7.0/install/lib::/home/admin/bf-sde-9.7.0/install/lib
+bf_sysfs_fname /sys/class/bf/bf0/device/dev_add
+Install dir: /home/admin/bf-sde-9.7.0/install (0x56432030abd0)
+bf_switchd: system services initialized
+bf_switchd: loading conf_file /home/admin/bf-sde-9.7.0/install/share/p4/targets/tofino/netclone.conf...
+bf_switchd: processing device configuration...
+Configuration for dev_id 0
+  Family        : tofino
+  pci_sysfs_str : /sys/devices/pci0000:00/0000:00:03.0/0000:05:00.0
+  pci_domain    : 0
+  pci_bus       : 5
+  pci_fn        : 0
+  pci_dev       : 0
+  pci_int_mode  : 1
+  sbus_master_fw: /home/admin/bf-sde-9.7.0/install/
+  pcie_fw       : /home/admin/bf-sde-9.7.0/install/
+  serdes_fw     : /home/admin/bf-sde-9.7.0/install/
+  sds_fw_path   : /home/admin/bf-sde-9.7.0/install/share/tofino_sds_fw/avago/firmware
+  microp_fw_path: 
+bf_switchd: processing P4 configuration...
+P4 profile for dev_id 0
+num P4 programs 1
+  p4_name: netclone
+  p4_pipeline_name: pipe
+    libpd: 
+    libpdthrift: 
+    context: /home/admin/bf-sde-9.7.0/install/share/tofinopd/netclone/pipe/context.json
+    config: /home/admin/bf-sde-9.7.0/install/share/tofinopd/netclone/pipe/tofino.bin
+  Pipes in scope [0 1 2 3 ]
+  diag: 
+  accton diag: 
+  Agent[0]: /home/admin/bf-sde-9.7.0/install/lib/libpltfm_mgr.so
+  non_default_port_ppgs: 0
+  SAI default initialize: 1 
+bf_switchd: library /home/admin/bf-sde-9.7.0/install/lib/libpltfm_mgr.so loaded
+bf_switchd: agent[0] initialized
+Health monitor started 
+Operational mode set to ASIC
+Initialized the device types using platforms infra API
+ASIC detected at PCI /sys/class/bf/bf0/device
+ASIC pci device id is 16
+Starting PD-API RPC server on port 9090
+bf_switchd: drivers initialized
+Setting core_pll_ctrl0=cd44cbfe
+-
+bf_switchd: dev_id 0 initialized
+
+bf_switchd: initialized 1 devices
+Adding Thrift service for bf-platforms to server
+bf_switchd: thrift initialized for agent : 0
+bf_switchd: spawning cli server thread
+bf_switchd: spawning driver shell
+bf_switchd: server started - listening on port 9999
+bfruntime gRPC server started on 0.0.0.0:50052
+
+        ********************************************
+        *      WARNING: Authorised Access Only     *
+        ********************************************
+    
+
+bfshell> Starting UCLI from bf-shell 
+```
+4. In terminal 2, configure ports manually or `run_bfshell.sh`. It is recommended to configure ports to 100Gbps.
  - After starting the switch program, run `./run_bfshell.sh` and type `ucli` and `pm`.
  - You can create ports like `port-add #/- 100G NONE` and `port-enb #/-`. It is recommended to turn off auto-negotiation using `an-set -/- 2`. This part requires knowledge of Intel Tofino-related stuff. You can find more information in the switch manual or on Intel websites.
 4. In terminal 3, run the controller using `python3 controller.py` in the SDE directory at the other terminal.
+- The output should be ...
+```
+root@tofino:/home/admin/bf-sde-9.7.0# python3 controller.py
+Binding with p4_name netclone
+Binding with p4_name netclone successful!!
+Received netclone on GetForwarding on client 0, device 0
+Received netclone on GetForwarding on client 0, device 0
+Received netclone on GetForwarding on client 0, device 0
+Received netclone on GetForwarding on client 0, device 0
+Received netclone on GetForwarding on client 0, device 0
+Received netclone on GetForwarding on client 0, device 0
+Received netclone on GetForwarding on client 0, device 0
+Received netclone on GetForwarding on client 0, device 0
+Received netclone on GetForwarding on client 0, device 0
+Received netclone on GetForwarding on client 0, device 0
+Received netclone on GetForwarding on client 0, device 0
+```
 
 ## Client/Server-side
 1. Open terminals for each node. For example, we open 8 terminals for 8 nodes (2 clients and 4 servers).
@@ -105,7 +191,31 @@ Our artifact is tested on:
 
 For example, to reproduce the result of NetClone in Figure 7 (a), use the following command:<br>
 `LD_PRELOAD=libvma.so VMA_THREAD_MODE=2 ./server 15 3 0`<br>
-Be aware that this command is only valid for the IP address configuration is correct and the server CPU supports more than 15 threads.
+Be aware that this command is only valid for the IP address configuration is correct and the server CPU supports more than 15 threads. <br>
+If done well, the output should be like as follows.<br>
+
+```
+root@node3:/home/netclone# ./server 15 3 0
+Server 1 is running
+Server Index in Switch is 0. Be careful
+The dispatcher is running
+Tx/Rx Worker 3 is running with Socket 3  
+Tx/Rx Worker 4 is running with Socket 3  
+Tx/Rx Worker 1 is running with Socket 3  
+Tx/Rx Worker 5 is running with Socket 3  
+Tx/Rx Worker 2 is running with Socket 3  
+Tx/Rx Worker 6 is running with Socket 3  
+Tx/Rx Worker 7 is running with Socket 3  
+Tx/Rx Worker 8 is running with Socket 3  
+Tx/Rx Worker 9 is running with Socket 3  
+Tx/Rx Worker 11 is running with Socket 3  
+Tx/Rx Worker 12 is running with Socket 3  
+Tx/Rx Worker 10 is running with Socket 3  
+Tx/Rx Worker 14 is running with Socket 3  
+Tx/Rx Worker 13 is running with Socket 3  
+Tx/Rx Worker 15 is running with Socket 3  
+```
+
 
 To evaluate LAEDGE, one node should be the coordinator. To run the coordinator, set `PROTOCOL_ID` to 99.<br>
 `LD_PRELOAD=libvma.so VMA_THREAD_MODE=2 ./server 15 99 0`
@@ -121,6 +231,19 @@ To evaluate LAEDGE, one node should be the coordinator. To run the coordinator, 
 
 For example, to reproduce a result of NetClone in Figure 7 (a), use the following command:<br>
 `LD_PRELOAD=libvma.so VMA_THREAD_MODE=2 ./client 6 3 0 20 1000000` <br>
+The output should be like ... <br>
+```
+root@node2:/home/netclone# ./client 6 3 0 5 100000
+Client 2 is running 
+Rx Worker 0 is running with Socket 3
+Tx Worker 0 is running with Socket 3 
+Tx Worker 0 done with 500000 reqs, Tx throughput: 99432 RPS 
+Rx Worker 0 finished with 0 redundant replies 
+Total time: 5.028971 seconds 
+Total received pkts: 500000 
+Rx Throughput: 99423 RPS 
+```
+
 
 7. When the experiment is finished, the clients report Tx/Rx throughput, experiment time, and other related information. Request latency in microseconds is logged as a text file like `log-0-0-0-6-15-1-1-20-103000.txt`. The end line of the log contains the total experiment time. Therefore, when you analyze the log, you should be careful.
 

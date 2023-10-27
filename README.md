@@ -49,15 +49,16 @@ Our artifact is tested on:
 
    `client.c`
    
-   - Line 26 MAX_SRV // the maximum number of servers in the testbed
+   - Line 26 MAX_SRV // the number of servers
    - Line 34 NUM_CLI // the number of clients
-   - Lines 183~212 // src_ip and dst_ip arrays.
-   - Lines 442~445 //Please set the interface name correctly. By default, it is set to `enp1s0np0`.
+   - Lines 183~211 // src_ip and dst_ip arrays.
+   - Lines 442~445 //Please set the interface name correctly. By default, it is set to `enp1s0` or `enp1s0np0`.
 
     `server.c`
-
-   - Lines 281~289 // src_ip and dst_ip arrays for LAEDGE coordinators.
-   - Lines 707~711 //Please set the interface name correctly. By default, it is set to `enp1s0np0`
+   - Line 35 NUM_CLI // the number of clients
+   - Line 36 NUM_SRV // the number of servers. This is only for LAEDGE coordinator.
+   - Lines 280~289 // src_ip and dst_ip arrays for LAEDGE coordinator. The reason why `10.0.1.103` (node3) is absent is, because node3 is the coordinator.
+   - Lines 707~711 //Please set the interface name correctly. By default, it is set to `enp1s0np0` or `enp1s0np0`.
 4. Compile `client.c` and `server.c` using `make`.
 
 ## Switch-side

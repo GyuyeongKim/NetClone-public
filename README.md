@@ -97,7 +97,7 @@ Our artifact is tested on:
 `ulimit -l unlimited` <br>
 
 5. Turn on the server program in server nodes by typing the following command<br>
-`LD_PRELOAD=libvma.so VMA_THREAD_MODE=2 ./server SRV_START_IDX NUM_WORKERS PROTOCOL_ID DIST` <br>
+`LD_PRELOAD=libvma.so VMA_THREAD_MODE=2 ./server NUM_WORKERS PROTOCOL_ID DIST` <br>
 `NUM_WORKERS`: The number of worker threads.<br>
 `PROTOCOL_ID`: The ID of protocols to use. 0 is the baseline (no cloning), 1 is C-Clone (CLICLONE in the code), 2 is LAEDGE, 3 is NetClone.<br>
 `DIST`: The distribution of RPC workloads. For example, 0 is exponential (25us), 1 is bimodal (25us,250us), and etc. Check the details in the code.<br>

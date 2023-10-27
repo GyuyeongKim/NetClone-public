@@ -98,17 +98,16 @@ Our artifact is tested on:
 
 5. Turn on the server program in server nodes by typing the following command<br>
 `LD_PRELOAD=libvma.so VMA_THREAD_MODE=2 ./server SRV_START_IDX NUM_WORKERS PROTOCOL_ID DIST` <br>
-`SRV_START_IDX`: The start index of the server. This is needed to get the server index switch data plane. Sorry for this ugly stuff. Let me explain. In the server program, the server ID is automatically assigned by parsing the IP address. In the cluster used in the paper, node1 has 10.0.1.101, node2 has 10.0.1.102, node3 has 10.0.1.103, ... so on. node1 and node2 are clients and node3~node8 are servers. So, we set `SRV_START_IDX` to 1 so that node3 gets the index in the switch as 2 (3 - 1) where 3 comes from the last digit of the IP address and 1 is the SRV_START_IDX. In the switch data plane, 0 is node1, 1 is node2, 2 is node 3, .. so on. You may remove this argument and manually assign the server index in the switch data plane like `RecvBuffer.srv_id=Your own index`. Note that this is for the convenience of experiments, not the core part of NetClone. <br>
 `NUM_WORKERS`: The number of worker threads.<br>
 `PROTOCOL_ID`: The ID of protocols to use. 0 is the baseline (no cloning), 1 is C-Clone (CLICLONE in the code), 2 is LAEDGE, 3 is NetClone.<br>
-`DIST`: The distribution of RPC workloads. For example, 0 is exponential (25us), 1 is bimodal (25us,250us), and etc. Check the detail in the code.<br>
+`DIST`: The distribution of RPC workloads. For example, 0 is exponential (25us), 1 is bimodal (25us,250us), and etc. Check the details in the code.<br>
 
 For example, to reproduce the result of NetClone in Figure 7 (a), use the following command:<br>
-`LD_PRELOAD=libvma.so VMA_THREAD_MODE=2 ./server 1 15 3 0`<br>
+`LD_PRELOAD=libvma.so VMA_THREAD_MODE=2 ./server 15 3 0`<br>
 Be aware that this command is only valid for the IP address configuration is correct and the server CPU supports more than 15 threads.
 
 To evaluate LAEDGE, one node should be the coordinator. To run the coordinator, set `PROTOCOL_ID` to 99.<br>
-`LD_PRELOAD=libvma.so VMA_THREAD_MODE=2 ./server 2 15 99 0`
+`LD_PRELOAD=libvma.so VMA_THREAD_MODE=2 ./server 15 99 0`
 
 
 6. Turn on the client program in client nodes by using the following command. <br>
@@ -122,7 +121,7 @@ To evaluate LAEDGE, one node should be the coordinator. To run the coordinator, 
 For example, to reproduce a result of NetClone in Figure 7 (a), use the following command:<br>
 `LD_PRELOAD=libvma.so VMA_THREAD_MODE=2 ./client 6 3 0 20 1000000` <br>
 
-7. When the experiment is finished, the clients report Tx/Rx throughput, experiment time, and other related information. Request latency is logged as a text file like `log-0-0-0-6-15-1-1-20-103000.txt`. The end line of the log contains the total experiment time. Therefore, when you analyze the log, you should be careful.
+7. When the experiment is finished, the clients report Tx/Rx throughput, experiment time, and other related information. Request latency in microseconds is logged as a text file like `log-0-0-0-6-15-1-1-20-103000.txt`. The end line of the log contains the total experiment time. Therefore, when you analyze the log, you should be careful.
 
 
 # Citation

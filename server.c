@@ -33,7 +33,7 @@
 #define OP_REQ 0
 #define OP_RESP 1
 #define NUM_CLI 2
-#define NUM_SRV 5 // For Laedge coordination. since coordinator is 1, the remaining servers are 5.
+#define NUM_SRV 6 // For Laedge coordination. since coordinator is 1, the remaining servers are 5.
 #define BUSY 1
 #define IDLE 0
 
@@ -257,7 +257,7 @@ struct Queue job_queue;
 
 struct arg_t {
   int sock;
-	int PROTOCOL_ID; 
+	int PROTOCOL_ID;
 	int SRV_START_IDX;
 	int SERVER_ID;
 	int NUM_WORKERS;
@@ -276,7 +276,7 @@ void run_work(uint64_t run_ns, double probability, double multiple) {
 
 
 void *coordinator_t(void *arg){
-  srand(time(NULL)); 
+  srand(time(NULL));
   char* src_ip[NUM_CLI];
   src_ip[0] = "10.0.1.101";
   src_ip[1] = "10.0.1.102";
@@ -289,7 +289,7 @@ void *coordinator_t(void *arg){
   dst_ip[4] = "10.0.1.108";
 
 	struct arg_t *args = (struct arg_t *)arg;
-	int SRV_START_IDX = args->SRV_START_IDX;
+	int SRV_START_IDX = 1;
 	int PROTOCOL_ID = args->PROTOCOL_ID;
 	int SERVER_ID = args->SERVER_ID;
 	int NUM_WORKERS = args->NUM_WORKERS;
@@ -463,7 +463,7 @@ void *coordinator_t(void *arg){
 /* WORKER */
 void *worker_t(void *arg){
 	struct arg_t *args = (struct arg_t *)arg;
-	int SRV_START_IDX = args->SRV_START_IDX;
+	int SRV_START_IDX = 1;
 	int PROTOCOL_ID = args->PROTOCOL_ID;
 	int SERVER_ID = args->SERVER_ID;
 	int NUM_WORKERS = args->NUM_WORKERS;
@@ -574,7 +574,7 @@ void *worker_t(void *arg){
                 i++;
             } while (i / 0.197 < (double) run_ns);
             RecvBuffer.op = htonl(OP_RESP);
-            RecvBuffer.srv_id = htonl(SERVER_ID-SRV_START_IDX);
+            RecvBuffer.srv_id = htonl(SERVER_ID-1);
   					sendto(sock, &RecvBuffer, sizeof(RecvBuffer),  0,  (struct sockaddr *)&(RecvBuffer.cli_addr), sizeof(RecvBuffer.cli_addr));
   				}
         }
@@ -601,7 +601,7 @@ void *worker_t(void *arg){
 
             RecvBuffer.load = htonl(queue_length(&job_queue));
   					RecvBuffer.op = htonl(OP_RESP);
-  					RecvBuffer.sid = htonl(SERVER_ID - SRV_START_IDX);
+  					RecvBuffer.sid = htonl(SERVER_ID - 1);
   					sendto(sock, &RecvBuffer, sizeof(RecvBuffer),  0,  (struct sockaddr *)&(RecvBuffer.cli_addr), sizeof(RecvBuffer.cli_addr));
   				}
         }
@@ -682,16 +682,16 @@ void *dispatcher_t(void *arg){
 
 
 int main(int argc, char *argv[]) {
-	if ( argc < 4 ){
-	 printf("Input : %s SRV_START_IDX NUM_WORKERS PROTOCOL_ID WORKLOAD \n", argv[0]);
+	if ( argc < 3 ){
+	 printf("Input : %s NUM_WORKERS PROTOCOL_ID WORKLOAD \n", argv[0]);
 	 exit(1);
 	}
 
 
-  int SRV_START_IDX = atoi(argv[1]);
-	int NUM_WORKERS = atoi(argv[2]);
-	int PROTOCOL_ID = atoi(argv[3]);
-  int DIST = atoi(argv[4]);
+
+	int NUM_WORKERS = atoi(argv[1]);
+	int PROTOCOL_ID = atoi(argv[2]);
+  int DIST = atoi(argv[3]);
   if(DIST > 3){
     printf("Distribution cannot exceed 3. \n");
     exit(1);
@@ -704,23 +704,24 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < MAX_REQUESTS; i++) redundnacy_filter2[i] = false;
   pthread_mutex_unlock(&lock_filter);
 
-	char *interface = "enp1s0";
+	char *interface = "enp1s0"; // if your nodes have different interfaces, then, modify this part in each node
 	int SERVER_ID = get_server_id(interface) ;
 
   if(SERVER_ID == -1 ||SERVER_ID == 0){
     interface = "enp1s0np0";
-    SERVER_ID = get_server_id(interface) - 2 ;
+    SERVER_ID = get_server_id(interface) - NUM_CLI ;
+    if(PROTOCOL_ID==LAEDGE) SERVER_ID = SERVER_ID - 1;
   }
   else{
-    SERVER_ID = SERVER_ID -2;
+    SERVER_ID = SERVER_ID - NUM_CLI;
+    if(PROTOCOL_ID==LAEDGE) SERVER_ID = SERVER_ID - 1;
   }
 	if(SERVER_ID > 255){
     printf("Your server ID is not normal please check your network and server configuration.");
     exit(1);
   }
 	printf("Server %d is running\n",SERVER_ID);
-
-  printf("You set SRV_START_ID to %d, which means Server Index in Switch is %d. Be careful\n",SRV_START_IDX,(SERVER_ID - SRV_START_IDX));
+  printf("Server Index in Switch is %d. Be careful\n",SERVER_ID - 1);
 
   struct sockaddr_in srv_addr;
 	memset(&srv_addr, 0, sizeof(srv_addr));
@@ -742,7 +743,7 @@ int main(int argc, char *argv[]) {
 	struct arg_t args;
   args.sock = sock;
 	args.PROTOCOL_ID = PROTOCOL_ID;
-	args.SRV_START_IDX = SRV_START_IDX;
+	args.SRV_START_IDX = 1;
 	args.SERVER_ID = SERVER_ID;
 	args.NUM_WORKERS = NUM_WORKERS;
 	args.DIST = DIST;

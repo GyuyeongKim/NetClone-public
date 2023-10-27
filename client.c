@@ -105,7 +105,7 @@ struct netclone_hdr{
   uint32_t clo;
   uint32_t tidx;
   uint64_t latency; // only for stats
-	struct sockaddr_in cli_addr; // this field is for queueing in the server since we need client addr. we can exclude this field in fact.  
+	struct sockaddr_in cli_addr; // this field is for queueing in the server since we need client addr. we can exclude this field in fact.
 } __attribute__((packed));
 
 #pragma pack(1)
@@ -185,8 +185,8 @@ void *tx_t(void *arg){
   src_ip[1] = "10.0.1.102";
 
   char* dst_ip[MAX_SRV];
-
-  if(PROTOCOL_ID == NETCLONE && NUM_SRV == 5){
+/*
+  if(PROTOCOL_ID == NETCLONE && NUM_SRV == 5){ // Used for comparing NetClone against LAEDGE
     dst_ip[0] = "10.0.1.104";
     dst_ip[1] = "10.0.1.105";
     dst_ip[2] = "10.0.1.106";
@@ -194,7 +194,7 @@ void *tx_t(void *arg){
     dst_ip[4] = "10.0.1.108";
     //dst_ip[5] = "10.0.1.108";
   }
-  else if(PROTOCOL_ID == CLICLONE && NUM_SRV == 5){
+  else if(PROTOCOL_ID == CLICLONE && NUM_SRV == 5){ // Used for comparing C-Clone against LAEDGE
     dst_ip[0] = "10.0.1.104";
     dst_ip[1] = "10.0.1.105";
     dst_ip[2] = "10.0.1.106";
@@ -202,14 +202,14 @@ void *tx_t(void *arg){
     dst_ip[4] = "10.0.1.108";
     //dst_ip[5] = "10.0.1.108";
   }
-  else{
+  else{ */// Default setting. For most experiments, clients refer the below setting.
     dst_ip[0] = "10.0.1.103";
     dst_ip[1] = "10.0.1.104";
     dst_ip[2] = "10.0.1.105";
     dst_ip[3] = "10.0.1.106";
     dst_ip[4] = "10.0.1.107";
     dst_ip[5] = "10.0.1.108";
-  }
+  //}
 
   int FIRST_SRV = 0;
   int SECOND_SRV = 0;
@@ -366,7 +366,7 @@ void *rx_t(void *arg){
           pthread_mutex_unlock(&lock_filter_read);
           if (!redun){
 
-      			fprintf(fd,"%lu\n",(get_cur_ns() - RecvBuffer.latency)/1000);
+      			fprintf(fd,"%lu\n",(get_cur_ns() - RecvBuffer.latency)/1000); // write latency in microseconds
       			local_pkt_counter[i]++;
       			timer = get_cur_ns();
             pthread_mutex_lock(&lock_filter);
@@ -381,7 +381,7 @@ void *rx_t(void *arg){
       int n = recvfrom(sock, &RecvBuffer, sizeof(RecvBuffer), MSG_DONTWAIT, (struct sockaddr*)&(cli_addr), &cli_addr_len);
       if(n>0){
         if(ntohl(RecvBuffer.op) == OP_RESP){
-    			fprintf(fd,"%lu\n",(get_cur_ns() - RecvBuffer.latency)/1000);
+    			fprintf(fd,"%lu\n",(get_cur_ns() - RecvBuffer.latency)/1000); // write latency in microseconds
     			local_pkt_counter[i]++;
     			timer = get_cur_ns();
         }
@@ -396,14 +396,14 @@ void *rx_t(void *arg){
           pthread_mutex_lock(&lock_filter_read);
           bool redun = redundnacy_filter[RecvBuffer.seq];
           pthread_mutex_unlock(&lock_filter_read);
-          if (!redun){
-      			fprintf(fd,"%lu\n",(get_cur_ns() - RecvBuffer.latency)/1000);
+          if (!redun){ // if not redundancy, write latency
+      			fprintf(fd,"%lu\n",(get_cur_ns() - RecvBuffer.latency)/1000); // write latency in microseconds
       			local_pkt_counter[i]++;
       			timer = get_cur_ns();
             pthread_mutex_lock(&lock_filter);
             redundnacy_filter[RecvBuffer.seq] = true;
             pthread_mutex_unlock(&lock_filter);
-          } else redundnacy_counter++;
+          } else redundnacy_counter++; // if redundancy, drop the pkt and count it.
         }
       }
     }
@@ -439,17 +439,17 @@ int main(int argc, char *argv[]) {
   pthread_mutex_lock(&lock_filter);
   for (int i = 0; i < MAX_REQUESTS; i++) redundnacy_filter[i] = false;
   pthread_mutex_unlock(&lock_filter);
-	char *interface = "enp1s0";
-	int SERVER_ID = get_server_id(interface) - 1 ;
-  if(SERVER_ID == -1){
-    interface = "enp1s0np0";
-    SERVER_ID = get_server_id(interface) - 1 ;
+	char *interface = "enp1s0"; // if your nodes have different interfaces, then, modify this part in each node
+	int SERVER_ID = get_server_id(interface)  ;
+  if(SERVER_ID == -1 || SERVER_ID == 0){
+    interface = "enp1s0np0"; // if your nodes have different interfaces, then, modify this part in each node
+    SERVER_ID = get_server_id(interface)  ;
   }
   if(SERVER_ID > 255){
     printf("Your server ID is not normal please check your network and server configuration.");
     exit(1);
   }
-	else printf("Server %d is running \n",SERVER_ID);
+	else printf("Client %d is running \n",SERVER_ID);
 
   struct sockaddr_in srv_addr;
   memset(&srv_addr, 0, sizeof(srv_addr)); // Initialize memory space with zeros

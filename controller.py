@@ -18,10 +18,10 @@ import port_mgr_pd_rpc as mr
 from time import sleep
 import socket, struct
 import binascii
-NUM_SRV_CTRL = 9 # Total number of nodes (including switch CPUs)
+NUM_SRV_CTRL = 8 # Total number of nodes
 NUM_GRP = 30 # 6c2 * 2. number of groups. we have 6 servers and duplicates requsts, 6c2 = 15 * 2. why we doulbe the value is to maintain randomness in load balancing.
 NUM_SRV = 6 # number of servers
-SRV_START_IDX = 2 # serer start index. 0~1 for clients, 2~7 for servers. this is not the same thing in server.c
+SRV_START_IDX = 2 # server start index. 0~1 for clients, 2~7 for servers. 
 RECIRC_PORT = 452 # Recirculation port number
 USE_RACKSCHED = 0 # use racksched? 1: yes 0: no
 def convert_to_hex(mac_address):
@@ -110,8 +110,7 @@ try:
 		0x0A00016A,
 		0x0A00016B,
 		0x0A00016C,
-		0x0A00016D,
-		0x0A000164
+		0x0A00016D
 		]
 	port_list = [
 	    396,
@@ -121,8 +120,7 @@ try:
 		428,
 		424,
 		412,
-		408,
-		64
+		408
 	]
 	mac_list = [
 	    0x0c42a12f12e6,
@@ -132,8 +130,7 @@ try:
 		0x1070fd1ccab8,
 		0x1070fd1ccab4,
 		0x1070fd1cc2c8,
-		0x1070fd1cd40c,
-		0x84c78f036d82
+		0x1070fd1cd40c
 	]
 
 	ipv4_exact = client.bfrt_info_get().table_get("pipe.SwitchIngress.ipv4_exact")
@@ -464,9 +461,9 @@ try:
 	table_add(target, get_srvID_table,[("hdr.netclone.grp", 12)],"get_srvID_action",[("srv1",2), ("srv2",5)])
 	table_add(target, get_srvID_table,[("hdr.netclone.grp", 13)],"get_srvID_action",[("srv1",3), ("srv2",4)])
 	table_add(target, get_srvID_table,[("hdr.netclone.grp", 14)],"get_srvID_action",[("srv1",3), ("srv2",5)])
-	table_add(target, get_srvID_table,[("hdr.netclone.grp", 15)],"get_srvID_action",[("srv1",4), ("srv2",5)])	
+	table_add(target, get_srvID_table,[("hdr.netclone.grp", 15)],"get_srvID_action",[("srv1",4), ("srv2",5)])
 
-	# we need reverse form of the above table entries to maintain randomness. 
+	# we need reverse form of the above table entries to maintain randomness.
 	table_add(target, get_srvID_table,[("hdr.netclone.grp", 16)],"get_srvID_action",[("srv1",1), ("srv2",0)])
 	table_add(target, get_srvID_table,[("hdr.netclone.grp", 17)],"get_srvID_action",[("srv1",2), ("srv2",0)])
 	table_add(target, get_srvID_table,[("hdr.netclone.grp", 18)],"get_srvID_action",[("srv1",3), ("srv2",0)])
@@ -491,7 +488,7 @@ try:
 			[SRV.make_key([gc.KeyTuple('$REGISTER_INDEX', i)])],
 			[SRV.make_data(
 				[gc.DataTuple('srv.f1', 0)])])
-		
+
 	# init srv load registers (shadow table)
 	SRV2= client.bfrt_info_get().table_get("pipe.srv2")
 	for i in range(NUM_SRV):

@@ -192,7 +192,7 @@ Received netclone on GetForwarding on client 0, device 0
 For example, to reproduce the result of NetClone in Figure 7 (a), use the following command:<br>
 `LD_PRELOAD=libvma.so VMA_THREAD_MODE=2 ./server 15 3 0`<br>
 Be aware that this command is only valid for the IP address configuration is correct and the server CPU supports more than 15 threads. <br>
-If done well, the output should be like as follows.<br>
+If done well, the output should be as follows (VMA is not used for simplicity).<br>
 
 ```
 root@node3:/home/netclone# ./server 15 3 0
@@ -231,7 +231,7 @@ To evaluate LAEDGE, one node should be the coordinator. To run the coordinator, 
 
 For example, to reproduce a result of NetClone in Figure 7 (a), use the following command:<br>
 `LD_PRELOAD=libvma.so VMA_THREAD_MODE=2 ./client 6 3 0 20 1000000` <br>
-The output should be like ... <br>
+The output should be like ... (VMA is not used for simplicity)<br>
 ```
 root@node2:/home/netclone# ./client 6 3 0 5 100000
 Client 2 is running 

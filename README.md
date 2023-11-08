@@ -227,7 +227,7 @@ To evaluate LAEDGE, one node should be the coordinator. To run the coordinator, 
 `Protocol`: The ID of protocols to use. Same as in the server-side one.<br>
 `Distribution`: Same as in the server-side one, but this is only for the naming of the log file.<br>
 `TIME_EXP`: The experiment time. Set this to more than 20 because there is a warm-up effect at the early phase of the experiment.<br>
-`TARGET_QPS`: The target throughput (=Tx throughput).
+`TARGET_QPS`: The target throughput (=Tx throughput). This should be large enough (recommend to use larger than 10000) since there are accuracy issues when computing inter-arrival time with a very low value. For example, if you set this less than 2000, the clients do not send requests.
 
 For example, to reproduce a result of NetClone in Figure 7 (a), use the following command:<br>
 `LD_PRELOAD=libvma.so VMA_THREAD_MODE=2 ./client 6 3 0 20 1000000` <br>

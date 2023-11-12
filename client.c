@@ -1,143 +1,4 @@
-#define _GNU_SOURCE
-#include <arpa/inet.h>
-#include <stdio.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <unistd.h>
-#include <time.h>
-#include <stdlib.h>
-#include <math.h>
-#include <netinet/in.h>
-#include <pthread.h>
-#include <stdint.h>
-#include <sched.h>
-#include <assert.h>
-#include <signal.h>
-#include <sys/syscall.h>
-#include <sys/ioctl.h>
-#include <net/if.h>
-#include <stdbool.h>
-
-#define NUM_HASHTABLE 2 // number of filtering table
-#define MAX_WORKERS 16
-#define NETCLONE_BASE_PORT 1000
-#define NOCLONE_BASE_PORT 2000
-#define LAEDGE_BASE_PORT 3000
-#define MAX_SRV 6
-#define NOCLONE 0 // Baseline, NoClone
-#define CLICLONE 1 // C-Clone
-#define LAEDGE 2
-#define NETCLONE 3
-#define OP_REQ 0
-#define OP_RESP 1
-#define MAX_REQUESTS 100000000 // limit of redundancy filter in clients. this is only for stats. you can increase this but you may face memory issues
-#define NUM_CLI 2
-#define COORDINATOR_ID 0 // server ID of LAEDGE coordinator
-pthread_mutex_t lock_filter_read = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t lock_filter = PTHREAD_MUTEX_INITIALIZER;
-bool* redundnacy_filter;
-
-void initialize_filter() {
-    redundnacy_filter = (bool*) malloc((MAX_REQUESTS)* sizeof(bool));
-}
-
-int local_pkt_counter[MAX_WORKERS] = {0,};
-int global_pkt_counter = 0;
-
-pthread_mutex_t lock_counter = PTHREAD_MUTEX_INITIALIZER;
-uint32_t global_load_counter  = 0;
-
-pthread_mutex_t lock_txid = PTHREAD_MUTEX_INITIALIZER;
-int tx_id = 0;
-pthread_mutex_t lock_rxid = PTHREAD_MUTEX_INITIALIZER;
-int rx_id = 0;
-pthread_mutex_t lock_create = PTHREAD_MUTEX_INITIALIZER;
-
-
-int combination(int n, int k) {
-  return (int) (round(exp(lgamma(n + 1) - lgamma(k + 1) - lgamma(n - k + 1))));
-}
-
-int get_server_id(char *interface){
-    int fd;
-    struct ifreq ifr;
-    fd = socket(AF_INET, SOCK_DGRAM, 0);
-    /* I want to get an IPv4 IP address */
-    ifr.ifr_addr.sa_family = AF_INET;
-    /* I want IP address attached to interface */
-    strncpy(ifr.ifr_name, interface, IFNAMSIZ-1);
-    ioctl(fd, SIOCGIFADDR, &ifr);
-    close(fd);
-		/* display only the last number of the IP address */
-		char* ip = inet_ntoa(((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr);
-    return (ip[strlen(ip) - 1] - '0');
-}
-
-void pin_to_cpu(int core){
-	int ret;
-	cpu_set_t cpuset;
-	pthread_t thread;
-
-	thread = pthread_self();
-	CPU_ZERO(&cpuset);
-	CPU_SET(core, &cpuset);
-	ret = pthread_setaffinity_np(thread, sizeof(cpu_set_t), &cpuset);
-  if (ret != 0){
-	    printf("Cannot pin thread. may be too many threads? \n");
-			exit(1);
-    }
-}
-
-uint64_t get_cur_ns() {
-  struct timespec ts;
-  clock_gettime(CLOCK_REALTIME, &ts);
-  uint64_t t = ts.tv_sec * 1000 * 1000 * 1000 + ts.tv_nsec;
-  return t;
-}
-
-#pragma pack(1)
-struct netclone_hdr{
-  uint32_t op;
-  uint32_t seq;
-  uint32_t grp;
-  uint32_t sid;
-  uint32_t load;
-  uint32_t clo;
-  uint32_t tidx;
-  uint64_t latency; // only for stats
-	struct sockaddr_in cli_addr; // this field is for queueing in the server since we need client addr. we can exclude this field in fact.
-} __attribute__((packed));
-
-#pragma pack(1)
-struct noclone_hdr{
-  uint32_t op;
-  uint32_t key;
-	uint64_t latency;
-	struct sockaddr_in cli_addr;
-} __attribute__((packed));
-
-
-#pragma pack(1)
-struct cliclone_hdr{
-  uint32_t op;
-  uint32_t key;
-	uint32_t seq;
-	uint64_t latency;
-	struct sockaddr_in cli_addr;
-} __attribute__((packed));
-
-#pragma pack(1)
-struct laedge_hdr{
-  uint32_t op;
-  uint32_t key;
-	uint32_t seq;
-	uint64_t latency;
-  uint32_t cli_id;
-  uint32_t srv_id;
-  uint16_t cli_port;
-  struct sockaddr_in cli_addr;
-} __attribute__((packed));
-
+#include "header.h"
 
 struct arg_t {
   int sock;
@@ -153,6 +14,8 @@ struct arg_t {
   uint64_t TIME_EXP;
 } __attribute__((packed));
 
+
+/* Tx-side function */
 void *tx_t(void *arg){
   pthread_mutex_lock(&lock_txid);
 	int i = tx_id++;
@@ -173,63 +36,32 @@ void *tx_t(void *arg){
 	uint64_t NUM_WORKERS_SRV = args->NUM_WORKERS_SRV;
   uint64_t NUM_SRV = args->NUM_SRV;
 	uint64_t NUM_REQUESTS = args->NUM_REQUESTS/NUM_WORKERS;
-  uint64_t TARGET_QPS = RAND_MAX*args->TARGET_QPS/1000/2/NUM_WORKERS;
+  uint64_t TARGET_QPS = RAND_MAX*args->TARGET_QPS/1000/2/NUM_WORKERS; 
   uint64_t counter = 0;
 	int PROTOCOL_ID = args->PROTOCOL_ID;
 	int DIST = args->DIST;
   uint64_t SERVER_ID = args->SERVER_ID;
-  /* Configure IP address */
-
-  char* src_ip[NUM_CLI];
-  src_ip[0] = "10.0.1.101";
-  src_ip[1] = "10.0.1.102";
-
-  char* dst_ip[MAX_SRV];
-/*
-  if(PROTOCOL_ID == NETCLONE && NUM_SRV == 5){ // Used for comparing NetClone against LAEDGE
-    dst_ip[0] = "10.0.1.104";
-    dst_ip[1] = "10.0.1.105";
-    dst_ip[2] = "10.0.1.106";
-    dst_ip[3] = "10.0.1.107";
-    dst_ip[4] = "10.0.1.108";
-    //dst_ip[5] = "10.0.1.108";
-  }
-  else if(PROTOCOL_ID == CLICLONE && NUM_SRV == 5){ // Used for comparing C-Clone against LAEDGE
-    dst_ip[0] = "10.0.1.104";
-    dst_ip[1] = "10.0.1.105";
-    dst_ip[2] = "10.0.1.106";
-    dst_ip[3] = "10.0.1.107";
-    dst_ip[4] = "10.0.1.108";
-    //dst_ip[5] = "10.0.1.108";
-  }
-  else{ */// Default setting. For most experiments, clients refer the below setting.
-    dst_ip[0] = "10.0.1.103";
-    dst_ip[1] = "10.0.1.104";
-    dst_ip[2] = "10.0.1.105";
-    dst_ip[3] = "10.0.1.106";
-    dst_ip[4] = "10.0.1.107";
-    dst_ip[5] = "10.0.1.108";
-  //}
-
   int FIRST_SRV = 0;
   int SECOND_SRV = 0;
-  int NUM_GRP=combination(NUM_SRV,2)*2;
+  int NUM_GRP=combination(NUM_SRV,2)*2; 
 	while(1){
-    inter_arrival_time = (uint64_t)(-log(1.0 - ((double)rand() / TARGET_QPS)) * 1000000) ;
+    /* Calculate inter-arrival time following exponential distirbuion */
+    inter_arrival_time = (uint64_t)(-log(1.0 - ((double)rand() / TARGET_QPS)) * 1000000) ; 
     temp_time+=inter_arrival_time;
-    while (get_cur_ns() < temp_time)
+    /* Spins if current time is not enough to calculated inter-arrival time */
+    while (get_cur_ns() < temp_time) 
       ;
 
+    /* Baseline. Simply send requests */
     if(PROTOCOL_ID == NOCLONE){
-
       inet_pton(AF_INET, dst_ip[rand()%NUM_SRV], &srv_addr.sin_addr);
       srv_addr.sin_port = htons(NOCLONE_BASE_PORT);
       struct noclone_hdr SendBuffer={0,};
       SendBuffer.op = htonl(OP_REQ);
       SendBuffer.latency = get_cur_ns();
-
       sendto(sock, &SendBuffer, sizeof(SendBuffer),  0, (struct sockaddr*)&(srv_addr), sizeof(srv_addr));
     }
+    /* C-Clone. Send duplicate requests to two different servers */
     else if(PROTOCOL_ID == CLICLONE){
       struct cliclone_hdr SendBuffer={0,};
       SendBuffer.op = htonl(OP_REQ);
@@ -239,25 +71,30 @@ void *tx_t(void *arg){
       SendBuffer.seq = temp;
       SendBuffer.latency = get_cur_ns();
 
-
+      /* Find two different servers*/
       do {
           FIRST_SRV = rand() % NUM_SRV;
           SECOND_SRV = rand() % NUM_SRV;
       } while (FIRST_SRV == SECOND_SRV);
 
+      /* First copy sent */
       inet_pton(AF_INET, dst_ip[FIRST_SRV], &srv_addr.sin_addr);
       srv_addr.sin_port = htons(NOCLONE_BASE_PORT);
       sendto(sock, &SendBuffer, sizeof(SendBuffer),  0, (struct sockaddr*)&(srv_addr), sizeof(srv_addr));
 
+      /* Second copy sent */
       inet_pton(AF_INET, dst_ip[SECOND_SRV], &srv_addr.sin_addr);
       sendto(sock, &SendBuffer, sizeof(SendBuffer),  0, (struct sockaddr*)&(srv_addr), sizeof(srv_addr));
 
     }
+
+    /* LAEDGE. LAEDGE first sends requests to the coordinator. */
     else if(PROTOCOL_ID == LAEDGE){
       struct laedge_hdr SendBuffer={0,};
-      inet_pton(AF_INET, dst_ip[COORDINATOR_ID], &srv_addr.sin_addr);
+      inet_pton(AF_INET, dst_ip[0], &srv_addr.sin_addr); // We assume coordinator is only one. So, dst_ip[0] is the coordinator.
       srv_addr.sin_port = htons(LAEDGE_BASE_PORT+ rand()%NUM_WORKERS_SRV);
-      SendBuffer.cli_id = htonl(SERVER_ID);
+      SendBuffer.cli_id = htonl(SERVER_ID-1);
+      
       SendBuffer.op = htonl(OP_REQ);
 
       pthread_mutex_lock(&lock_counter);
@@ -265,26 +102,26 @@ void *tx_t(void *arg){
       SendBuffer.seq = htonl(temp);
       pthread_mutex_unlock(&lock_counter);
 
-
       SendBuffer.latency = get_cur_ns();
       sendto(sock, &SendBuffer, sizeof(SendBuffer),  0, (struct sockaddr*)&(srv_addr), sizeof(srv_addr));
     }
+
+    /* NetClone */
     else if(PROTOCOL_ID == NETCLONE){
-
       inet_pton(AF_INET, dst_ip[rand()%NUM_SRV], &srv_addr.sin_addr);
-
       srv_addr.sin_port = htons(NETCLONE_BASE_PORT);
       struct netclone_hdr SendBuffer={0,};
       SendBuffer.op = htonl(OP_REQ);
-      SendBuffer.grp = htonl( rand()%NUM_GRP+1);
-      SendBuffer.sid = htonl( rand()%NUM_SRV);
-      SendBuffer.tidx = htonl( rand()%NUM_HASHTABLE);
+      SendBuffer.grp = htonl( rand()%NUM_GRP+1); // Assigns random group ID that specifies two servers
+      SendBuffer.sid = htonl( rand()%NUM_SRV); // Assigns random dst. server ID for load balancing
+      SendBuffer.tidx = htonl( rand()%NUM_HASHTABLE); // Assgins random filter table index
 
       SendBuffer.latency = get_cur_ns();
       sendto(sock, &SendBuffer, sizeof(SendBuffer),  0, (struct sockaddr*)&(srv_addr), sizeof(srv_addr));
 
     }
     counter++;
+    /* Avoids throughput miscalculation when we use C-Clone */
     if(PROTOCOL_ID == CLICLONE){
       counter++;
       if(counter >= NUM_REQUESTS*2) break;
@@ -301,12 +138,11 @@ void *tx_t(void *arg){
 
 }
 
+/* Rx-side function */
 void *rx_t(void *arg){
-
   pthread_mutex_lock(&lock_rxid);
 	int i = rx_id++;
 	pthread_mutex_unlock(&lock_rxid);
-
 
   struct arg_t *args = (struct arg_t *)arg;
   uint64_t NUM_WORKERS = args->NUM_WORKERS;
@@ -326,6 +162,7 @@ void *rx_t(void *arg){
 	uint64_t SERVER_ID = args->SERVER_ID;
 	uint64_t DIST = args->DIST;
 
+  /* Log file definition */
 	char log_file_name[40];
 	sprintf(log_file_name,"./log-%lu-%lu-%d-%lu-%lu-%lu-%lu-%lu-%lu.txt",PROTOCOL_ID,SERVER_ID,i,NUM_SRV,NUM_WORKERS_SRV,NUM_WORKERS,DIST,TIME_EXP,TARGET_QPS);  // log-ServerID-ThreadID-Protocol-REQUESTS-QPS
 	FILE* fd;
@@ -333,24 +170,20 @@ void *rx_t(void *arg){
 		exit(1);
 	}
 
-
-
   uint64_t elapsed_time = get_cur_ns();
-
 	uint64_t timer = get_cur_ns();
 	int n = 0;
   int redundnacy_counter = 0;
-  double ssss =0;
   while(1){
-		if((get_cur_ns() - timer  ) > 1e9 )  break;
+		if((get_cur_ns() - timer  ) > 1e9 )  break; // If Rx thread does not receive any pkt more than 1 seconds, then terminate the program.
 
     if(PROTOCOL_ID == NOCLONE){
       struct noclone_hdr RecvBuffer;
       int n = recvfrom(sock, &RecvBuffer, sizeof(RecvBuffer), MSG_DONTWAIT, (struct sockaddr*)&(cli_addr), &cli_addr_len);
       if(n>0){
         if(ntohl(RecvBuffer.op) == OP_RESP){
-          fprintf(fd,"%lu\n",(get_cur_ns() - RecvBuffer.latency)/1000);
-          local_pkt_counter[i]++;
+          fprintf(fd,"%lu\n",(get_cur_ns() - RecvBuffer.latency)/1000); // Record latency
+          local_pkt_counter[i]++; // Increase pkt counter
           timer = get_cur_ns();
         }
       }
@@ -360,19 +193,17 @@ void *rx_t(void *arg){
       int n = recvfrom(sock, &RecvBuffer, sizeof(RecvBuffer), MSG_DONTWAIT, (struct sockaddr*)&(cli_addr), &cli_addr_len);
       if(n>0){
         if(ntohl(RecvBuffer.op) == OP_RESP){
-
           pthread_mutex_lock(&lock_filter_read);
-          bool redun = redundnacy_filter[RecvBuffer.seq];
+          bool redun = redundnacy_filter[RecvBuffer.seq]; // Check whether this is duplicate response
           pthread_mutex_unlock(&lock_filter_read);
-          if (!redun){
-
+          if (!redun){ // If not duplicate response, then record latency
       			fprintf(fd,"%lu\n",(get_cur_ns() - RecvBuffer.latency)/1000); // write latency in microseconds
       			local_pkt_counter[i]++;
       			timer = get_cur_ns();
             pthread_mutex_lock(&lock_filter);
             redundnacy_filter[RecvBuffer.seq] = true;
             pthread_mutex_unlock(&lock_filter);
-          } else redundnacy_counter++;
+          } else redundnacy_counter++; // Otherwise, just increase redundancy counter.
         }
       }
     }
@@ -409,6 +240,7 @@ void *rx_t(void *arg){
     }
   }
 
+  /* Finish Rx worker and report stats. */
 	double tot_time = ((get_cur_ns() - elapsed_time )/1e9)-1;
 	fprintf(fd,"%f\n",tot_time);
 	printf("Rx Worker %d finished with %d redundant replies \n",i,redundnacy_counter);
@@ -428,25 +260,21 @@ int main(int argc, char *argv[]) {
 	int PROTOCOL_ID = atoi(argv[2]);
 	int DIST = atoi(argv[3]);
   int TIME_EXP = atoi(argv[4]);
-
   uint64_t TARGET_QPS = atoi(argv[5]);
   int NUM_REQUESTS = TARGET_QPS*TIME_EXP;
   if(DIST > 3){
     printf("Distribution cannot exceed 3.\n");
     exit(1);
   }
-  initialize_filter();
+  initialize_filter_client();
   pthread_mutex_lock(&lock_filter);
   for (int i = 0; i < MAX_REQUESTS; i++) redundnacy_filter[i] = false;
   pthread_mutex_unlock(&lock_filter);
-	char *interface = "enp1s0"; // if your nodes have different interfaces, then, modify this part in each node
-	int SERVER_ID = get_server_id(interface)  ;
-  if(SERVER_ID == -1 || SERVER_ID == 0){
-    interface = "enp1s0np0"; // if your nodes have different interfaces, then, modify this part in each node
-    SERVER_ID = get_server_id(interface)  ;
-  }
-  if(SERVER_ID > 255){
-    printf("Your server ID is not normal please check your network and server configuration.");
+
+	int SERVER_ID = get_server_id(interface);
+
+  if(SERVER_ID > 255 || SERVER_ID == -1 || SERVER_ID == 0){
+    printf("Your server ID %d is not normal please check your network and server configuration.\n",SERVER_ID);
     exit(1);
   }
 	else printf("Client %d is running \n",SERVER_ID);
@@ -478,6 +306,7 @@ int main(int argc, char *argv[]) {
 	}
 
 
+  /* Launch threads */
   pthread_t tx[MAX_WORKERS],rx[MAX_WORKERS];
 	uint64_t elapsed_time = get_cur_ns();
   for(int i=0;i<NUM_WORKERS;i++){
@@ -492,6 +321,7 @@ int main(int argc, char *argv[]) {
 		pthread_join(tx[i], NULL);
 	}
 
+  /* Report stats */
 	for(int i=0;i<NUM_WORKERS;i++) global_pkt_counter += local_pkt_counter[i];
 	double tot_time = ((get_cur_ns() - elapsed_time )/1e9)-1;
 	double throughput = global_pkt_counter  / tot_time ;

@@ -1,3 +1,7 @@
+/* Configuration START */
+#define RECIRC_PORT 452 // Recirculation port number. Check your switch spec and update this.
+/* Configuration END */
+
 #include <core.p4>
 #if __TARGET_TOFINO__ == 2
 #include <t2na.p4>
@@ -6,25 +10,12 @@
 #endif
 #define OP_REQ 0
 #define OP_RESP 1
-#define MAX_OBJ 131072
-#define MAX_SRV 6
+#define MAX_OBJ 131072 
+#define MAX_SRV 32
 #define MAX_SEQ 100000000
-#define NETCLONE_PORT_0 1000
-#define NETCLONE_PORT_1 1001
-#define NETCLONE_PORT_2 1002
-#define NETCLONE_PORT_3 1003
-#define NETCLONE_PORT_4 1004
-#define NETCLONE_PORT_5 1005
-#define NETCLONE_PORT_6 1006
-#define NETCLONE_PORT_7 1007
-#define NETCLONE_PORT_8 1008
-#define NETCLONE_PORT_9 1009
-#define NETCLONE_PORT_10 1010
-#define NETCLONE_PORT_11 1011
-#define NETCLONE_PORT_12 1012
-#define NETCLONE_PORT_13 1013
-#define NETCLONE_PORT_14 1014
-#define NETCLONE_PORT_15 1015
+#define NETCLONE_PORT 1000
+
+
 /*************************************************************************
 *********************** H E A D E R S  ***********************************
 *************************************************************************/
@@ -126,8 +117,6 @@ Register<bit<32>,_>(MAX_SRV,0) srv;
 Register<bit<32>,_>(MAX_SRV,0) srv2;
 Register<bit<32>,_>(MAX_OBJ,0) req;
 Register<bit<32>,_>(MAX_OBJ,0) req2;
-Register<bit<32>,_>(MAX_OBJ,0) req3;
-Register<bit<32>,_>(MAX_OBJ,0) req4;
 Register<bit<32>,_>(1,0) seq;
 Register<bit<32>,_>(1,0) racksched_reg;
 /*************************************************************************
@@ -165,22 +154,7 @@ parser SwitchIngressParser(
     state parse_udp {
         pkt.extract(hdr.udp);
         transition select(hdr.udp.dstPort){
-            NETCLONE_PORT_0: parse_netclone;
-            NETCLONE_PORT_1: parse_netclone;
-            NETCLONE_PORT_2: parse_netclone;
-            NETCLONE_PORT_3: parse_netclone;
-            NETCLONE_PORT_4: parse_netclone;
-            NETCLONE_PORT_5: parse_netclone;
-            NETCLONE_PORT_6: parse_netclone;
-            NETCLONE_PORT_7: parse_netclone;
-            NETCLONE_PORT_8: parse_netclone;
-            NETCLONE_PORT_9: parse_netclone;
-            NETCLONE_PORT_10: parse_netclone;
-            NETCLONE_PORT_11: parse_netclone;
-            NETCLONE_PORT_12: parse_netclone;
-            NETCLONE_PORT_13: parse_netclone;
-            NETCLONE_PORT_14: parse_netclone;
-            NETCLONE_PORT_15: parse_netclone;
+            NETCLONE_PORT: parse_netclone;
             default: parse_udp2;
         }
     }
@@ -188,22 +162,7 @@ parser SwitchIngressParser(
     state parse_udp2 {
         //transition parse_netclone;
         transition select(hdr.udp.srcPort){
-            NETCLONE_PORT_0: parse_netclone;
-            NETCLONE_PORT_1: parse_netclone;
-            NETCLONE_PORT_2: parse_netclone;
-            NETCLONE_PORT_3: parse_netclone;
-            NETCLONE_PORT_4: parse_netclone;
-            NETCLONE_PORT_5: parse_netclone;
-            NETCLONE_PORT_6: parse_netclone;
-            NETCLONE_PORT_7: parse_netclone;
-            NETCLONE_PORT_8: parse_netclone;
-            NETCLONE_PORT_9: parse_netclone;
-            NETCLONE_PORT_10: parse_netclone;
-            NETCLONE_PORT_11: parse_netclone;
-            NETCLONE_PORT_12: parse_netclone;
-            NETCLONE_PORT_13: parse_netclone;
-            NETCLONE_PORT_14: parse_netclone;
-            NETCLONE_PORT_15: parse_netclone;
+            NETCLONE_PORT: parse_netclone;
             default: accept;
         }
     }
@@ -268,55 +227,6 @@ control SwitchIngress(
         default_action = inc_seq_action;
     }
 
-    RegisterAction<bit<32>, _, bit<32>>(req4) update_list4 = {
-        void apply(inout bit<32> reg_value, out bit<32> return_value) {
-            if (reg_value == hdr.netclone.seq){
-                reg_value = 0;
-                return_value = 1;
-            }
-            else{
-                reg_value = hdr.netclone.seq;
-                return_value = 0;
-            }
-        }
-    };
-
-    action update_list_action4(){
-        ig_md.update_result = (bit<8>)update_list4.execute(ig_md.hash);
-    }
-
-    table update_list_table4{
-        actions = {
-            update_list_action4;
-        }
-        size = 1;
-        default_action = update_list_action4;
-    }
-
-    RegisterAction<bit<32>, _, bit<32>>(req3) update_list3 = {
-        void apply(inout bit<32> reg_value, out bit<32> return_value) {
-            if (reg_value == hdr.netclone.seq){
-                reg_value = 0;
-                return_value = 1;
-            }
-            else{
-                reg_value = hdr.netclone.seq;
-                return_value = 0;
-            }
-        }
-    };
-
-    action update_list_action3(){
-        ig_md.update_result = (bit<8>)update_list3.execute(ig_md.hash);
-    }
-
-    table update_list_table3{
-        actions = {
-            update_list_action3;
-        }
-        size = 1;
-        default_action = update_list_action3;
-    }
 
     RegisterAction<bit<32>, _, bit<32>>(req2) update_list2 = {
         void apply(inout bit<32> reg_value, out bit<32> return_value) {
@@ -549,8 +459,8 @@ control SwitchIngress(
     };
     apply {
         /*************** NetClone Block START *****************************/
-            if (ig_intr_md.ingress_port == 452) { // Cloned recirculated packets
-                hdr.netclone.clo = 2;
+            if (ig_intr_md.ingress_port == RECIRC_PORT) { // Cloned recirculated packets
+                hdr.netclone.clo = 2; // Mark as the cloned request 
                 CloneForward_table.apply(); // Rewrite dest. IP address
                 ipv4_exact.apply();
             }
@@ -573,15 +483,15 @@ control SwitchIngress(
 
                     }
                     else drop();
-                    if(ig_md.srv2pass == 0){ // Ready for cloning
+                    if(ig_md.srv2pass == 0){ // There are two idle servers (i.e., cloning)
                         update_dstIP_table.apply();
-                        hdr.netclone.clo = 1; 
+                        hdr.netclone.clo = 1;  // Mark as the original request
                         hdr.netclone.sid = ig_md.srv2id;
                         msg_cloning_table.apply(); 
                     }
-                    else{
+                    else{ // At least any chosen server is busy (i.e., no cloning)
                         if(ig_md.srv2pass == 2) ig_md.srv1id = ig_md.srv2id;
-                        RandomLB_table.apply();
+                        RandomLB_table.apply(); // Random load balancing
                         ipv4_exact.apply();
                     }
                 }
@@ -592,8 +502,6 @@ control SwitchIngress(
                         get_hash_table.apply(); // then, get hash and trigger filtering function
                         if(hdr.netclone.tidx == 0) update_list_table.apply();
                         else if(hdr.netclone.tidx == 1) update_list_table2.apply();
-                        //else if(hdr.netclone.tidx == 2) update_list_table3.apply(); // You can use more filter tables if needed
-                        //else if(hdr.netclone.tidx == 3) update_list_table4.apply(); // You can use more filter tables if needed
                         else drop();
                         if(ig_md.update_result == 1) drop(); // Slower response
                         else ipv4_exact.apply(); // Faster response
@@ -605,7 +513,6 @@ control SwitchIngress(
             else ipv4_exact.apply();
     }
 }
-
 
 
 /*************************************************************************

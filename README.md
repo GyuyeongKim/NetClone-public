@@ -19,8 +19,8 @@ This repository contains the following code segments:
 - Nodes should be equipped with an Nvidia ConnectX-5 NIC or similar NIC supporting Nvidia VMA for kernel-bypass networking. Experiments can still be run without the VMA-capable NICs, but this may result in increased latency and decreased throughput due to the application's reliance on a legacy network stack. 
 - A programmable switch with Intel Tofino1 ASIC is needed.
 
-Our artifact is tested on:
-- 8 nodes (2 clients and 6 servers) with single-port Nvidia 100GbE MCX515A-CCAT ConnectX-5 NIC
+Our artifact for a minimal example is tested on:
+- 3 nodes (1 client and 2 servers) with single-port Nvidia 100GbE MCX515A-CCAT ConnectX-5 NIC
 - APS BF6064XT switch with Intel Tofino1 ASIC
 
 # Software dependencies
@@ -44,38 +44,81 @@ Our artifact is tested on:
 # Installation
 
 ## Client/Server-side
-1. Place `client.c`, `server.c`, and `Makefile` in the home directory (We used `/home/netclone` in the paper).
-2. Configure cluster-related details in `client.c` and `server.c`, such as IP and MAC addresses. Note that IP configuration is important in this artifact. Each node should have a linearly-increasing IP address. For example, we use 10.0.1.101 for node1, 10.0.1.102 for node2, and 10.0.1.103 for node3. This is because the server program automatically assigns the server ID using the last digit of the IP address. e.g., for 10.0.1.103, the server ID is 3 (cuz the last digit of .103 is 3).
+1. Place `client.c`, `server.c`, `header.h`, and `Makefile` in the home directory (We used `/home/netclone` in the paper).
+2. Configure cluster-related details in `header.h`, such as IP and MAC addresses. Note that IP configuration is important in this artifact. Each node should have a linearly-increasing IP address. For example, we use 10.0.1.101 for node1, 10.0.1.102 for node2, and 10.0.1.103 for node3. This is because the server program automatically assigns the server ID based on the last digit of the IP address.
 
-   `client.c`
+   `header.h`
    
-   - Line 26 MAX_SRV // the number of servers
-   - Line 34 NUM_CLI // the number of clients
-   - Lines 183~211 // src_ip and dst_ip arrays.
-   - Lines 442~445 //Please set the interface name correctly. By default, it is set to `enp1s0` or `enp1s0np0`.
+   - Line 4 `char *interface` // Interface name.
+   - Line 5 `NUM_CLI` // Number of clients. Need to assign server ID automatically. Also need for LAEDGE.
+   - Line 6 `NUM_SRV_LAEDGE` // the number of servers (including LAEDGE coordinator node). Need for LAEDGE. Min. number is 3 (1 coordinator and 2 servers)
+   - Line 7 `char* src_ip` // client IP addresses. Need for LAEDGE.
+   - Line 8 `char* dst_ip` server IP addresses. Need for LAEDGE, NoClone, C-Clone.
 
-    `server.c`
-   - Line 35 NUM_CLI // the number of clients
-   - Line 36 NUM_SRV // the number of servers. This is only for LAEDGE coordinator.
-   - Lines 280~289 // src_ip and dst_ip arrays for LAEDGE coordinator. The reason why `10.0.1.103` (node3) is absent is, because node3 is the coordinator.
-   - Lines 707~711 // Please set the interface name correctly. By default, it is set to `enp1s0np0` or `enp1s0np0`.
-4. Compile `client.c` and `server.c` using `make`.
+3. Compile `client.c`, `server.c`, and `header.h` using `make`.
 
 ## Switch-side
 1. Place `controller.py` and `netclone.p4` in the SDE directory.
 2. Configure cluster-related information in the `netclone.p4`.
-   - Line 552 ig_initr_md.ingress_port // we currently use 452 for recirculation. 452 is the recirculation port for pipeline 3 in our APS BF6064XT. Check your switch spec and set it correctly. 
+   - Line 2 `RECIRC_PORT` // Recirculation port number. 452 is the recirculation port for pipeline 3 in our APS BF6064XT. Check your switch spec and set it correctly. 
 3. Configure cluster-related information in the `controller.py`. This includes IP and MAC addresses, and port-related information.
-   - Lines 21~25 // Several cluster-related information
-   - Lines 104~137 // IP, Port, and MAC information.
-   - Lines 162~484// Cloning-related configuration. The number of entries in the tables depends on the number of servers.
+   - Line 2 `RECIRC_PORT` // Recirculation port number.
+   - Line 3 `ip_list` // IP addresses of nodes.
+   - Line 8 `port_list` // port number of nodes.
+   - Line 13 `mac_list` // MAC addresses of nodes.
+   - 
 4. Compile `netclone.p4` using the P4 compiler (we used `p4build.sh` provided by Intel). You can compile it manually with the following commands.
    - `cmake ${SDE}/p4studio -DCMAKE_INSTALL_PREFIX=${SDE_INSTALL} -DCMAKE_MODULE_PATH=${SDE}/cmake -DP4_NAME=netclone -DP4_PATH=${SDE}/netclone.p4`
    - `make`
    - `make install`
    - `${SDE}` and `${SDE_INSTALL}` are path to the SDE. In our testbed, SDE = `/home/admin/bf-sde-9.7.0`  and SDE_INSTALL = `/home/admin/bf-sde-9.7.0/install`.
    - If done well, you should see the following outputs
-     ![output](https://github.com/GyuyeongKim/NetClone-public/blob/0d9cb690f693a1b8b876c14cafa6def05713a5e2/output.png)
+   ```
+   -- 
+   P4_LANG: p4-16
+   P4C: /home/admin/bf-sde-9.7.0/install/bin/bf-p4c
+   P4C-GEN_BRFT-CONF: /home/admin/bf-sde-9.7.0/install/bin/p4c-gen-bfrt-conf
+   P4C-MANIFEST-CONFIG: /home/admin/bf-sde-9.7.0/install/bin/p4c-manifest-config
+   -- 
+   P4_NAME: netclone
+   -- 
+   P4_PATH: /home/admin/bf-sde-9.7.0/netclone.p4
+   -- Configuring done
+   -- Generating done
+   -- Build files have been written to: /home/admin/bf-sde-9.7.0
+   [  0%] Built target bf-p4c
+   [  0%] Built target driver
+   [100%] Generating netclone/tofino/bf-rt.json
+   /home/admin/bf-sde-9.7.0/netclone.p4(385): [--Wwarn=shadow] warning: 'srv2' shadows 'srv2'
+       action get_srvID_action(bit<32> srv1, bit<32> srv2){
+                                                     ^^^^
+   /home/admin/bf-sde-9.7.0/netclone.p4(117)
+   Register<bit<32>,_>(32,0) srv2;
+                             ^^^^
+   /home/admin/bf-sde-9.7.0/netclone.p4(129): [--Wwarn=uninitialized_out_param] warning: out parameter 'ig_md' may be uninitialized when 'SwitchIngressParser' terminates
+           out metadata_t ig_md,
+                          ^^^^^
+   /home/admin/bf-sde-9.7.0/netclone.p4(126)
+   parser SwitchIngressParser(
+          ^^^^^^^^^^^^^^^^^^^
+   [100%] Built target netclone-tofino
+   [100%] Built target netclone
+   [  0%] Built target bf-p4c
+   [  0%] Built target driver
+   [100%] Built target netclone-tofino
+   [100%] Built target netclone
+   Install the project...
+   -- Install configuration: "RelWithDebInfo"
+   -- Up-to-date: /home/admin/bf-sde-9.7.0/install/share/p4/targets/tofino
+   -- Installing: /home/admin/bf-sde-9.7.0/install/share/p4/targets/tofino/netclone.conf
+   -- Up-to-date: /home/admin/bf-sde-9.7.0/install/share/tofinopd/netclone
+   -- Installing: /home/admin/bf-sde-9.7.0/install/share/tofinopd/netclone/events.json
+   -- Up-to-date: /home/admin/bf-sde-9.7.0/install/share/tofinopd/netclone/pipe
+   -- Installing: /home/admin/bf-sde-9.7.0/install/share/tofinopd/netclone/pipe/context.json
+   -- Installing: /home/admin/bf-sde-9.7.0/install/share/tofinopd/netclone/pipe/tofino.bin
+   -- Installing: /home/admin/bf-sde-9.7.0/install/share/tofinopd/netclone/bf-rt.json
+   -- Installing: /home/admin/bf-sde-9.7.0/install/share/tofinopd/netclone/source.json
+   ```
 # Experiment workflow
 ## Switch-side
 1. Open three terminals for the switch control plane. We need them for 1) starting the switch program, 2) port configuration, 3) rule configuration by controller
@@ -152,10 +195,10 @@ bfshell> Starting UCLI from bf-shell
 4. In terminal 2, configure ports manually or `run_bfshell.sh`. It is recommended to configure ports to 100Gbps.
  - After starting the switch program, run `./run_bfshell.sh` and type `ucli` and `pm`.
  - You can create ports like `port-add #/- 100G NONE` and `port-enb #/-`. It is recommended to turn off auto-negotiation using `an-set -/- 2`. This part requires knowledge of Intel Tofino-related stuff. You can find more information in the switch manual or on Intel websites.
-4. In terminal 3, run the controller using `python3 controller.py` in the SDE directory.
+4. In terminal 3, run the controller using `python3 controller.py 3 2 0` in the SDE directory for the minimal working example.
 - The output should be ...
 ```
-root@tofino:/home/admin/bf-sde-9.7.0# python3 controller.py
+root@tofino:/home/admin/bf-sde-9.7.0# python3 controller.py 3 2 0
 Binding with p4_name netclone
 Binding with p4_name netclone successful!!
 Received netclone on GetForwarding on client 0, device 0
@@ -168,13 +211,13 @@ Received netclone on GetForwarding on client 0, device 0
 Received netclone on GetForwarding on client 0, device 0
 Received netclone on GetForwarding on client 0, device 0
 Received netclone on GetForwarding on client 0, device 0
-Received netclone on GetForwarding on client 0, device 0
+root@tofino:/home/admin/bf-sde-9.7.0# 
 ```
 
 ## Client/Server-side
-1. Open terminals for each node. For example, we open 8 terminals for 8 nodes (2 clients and 4 servers).
+1. Open terminals for each node. For example, we open 3 terminals for 3 nodes (1 client and 2 servers).
 2. Make sure your ARP table and IP configuration are correct. The provided switch code does not concern the network setup of hosts. Therefore, you should do network configuration in hosts manually. Also, please double-check check the cluster-related information in the codes is configured correctly.
-   - You can set the arp rule using `arp -s IP_ADDRESS MAC_ADDRESS`. For example, type `arp -s 10.0.1.101 0c:42:a1:2f:12:e6` in node 2~8 for node 1.
+   - You can set the arp rule using `arp -s IP_ADDRESS MAC_ADDRESS`. For example, type `arp -s 10.0.1.101 0c:42:a1:2f:12:e6` in node 2~3 for node 1.
 3. Make sure each node can communicate by using tools like `ping`. e.g., `ping 10.0.1.101` in other nodes.
 4. Configure VMA-related stuffs like socket buffers, hugepages, etc. The following commands must be executed in all nodes. <br>
 `sysctl -w net.core.rmem_max=104857600 && sysctl -w net.core.rmem_default=104857600` <br>
@@ -185,66 +228,65 @@ Received netclone on GetForwarding on client 0, device 0
 5. Turn on the server program in server nodes by typing the following command<br>
 `LD_PRELOAD=libvma.so VMA_THREAD_MODE=2 ./server NUM_WORKERS PROTOCOL_ID DIST` <br>
 `NUM_WORKERS`: The number of worker threads.<br>
-`PROTOCOL_ID`: The ID of protocols to use. 0 is the baseline (no cloning), 1 is C-Clone (CLICLONE in the code), 2 is LAEDGE, 3 is NetClone.<br>
-`DIST`: The distribution of RPC workloads. For example, 0 is exponential (25us), 1 is bimodal (25us,250us), and etc. Check the details in the code.<br>
+`PROTOCOL_ID`: The ID of protocols to use. 0 is the baseline (no cloning, NoCLONE), 1 is C-Clone (CLICLONE in the code), 2 is LAEDGE, 3 is NetClone.<br>
+`DIST`: The distribution of RPC workloads. For example, 0 is exponential (25us), 1 is bimodal (25us,250us), and etc. Check the details in the code (lines 205~208).<br>
 
-For example, to reproduce the result of NetClone in Figure 7 (a), use the following command:<br>
-`LD_PRELOAD=libvma.so VMA_THREAD_MODE=2 ./server 15 3 0`<br>
-Be aware that this command is only valid for the IP address configuration is correct and the server CPU supports more than 15 threads. <br>
+For our minimal working example, use the command as follows:<br>
+`LD_PRELOAD=libvma.so VMA_THREAD_MODE=2 ./server 1 3 0` <br>
 If done well, the output should be as follows.<br>
 
 ```
-root@node3:/home/netclone# LD_PRELOAD=libvma.so VMA_THREAD_MODE=2 ./server 15 3 0
+root@node2:/home/netclone# LD_PRELOAD=libvma.so VMA_THREAD_MODE=2 ./server 1 3 0
+ VMA INFO: ---------------------------------------------------------------------------
+ VMA INFO: VMA_VERSION: 9.7.2-1 Release built on Nov 14 2022 17:03:52
+ VMA INFO: Cmd Line: ./server 1 3 0
+ VMA INFO: OFED Version: MLNX_OFED_LINUX-5.8-1.1.2.1:
+ VMA INFO: ---------------------------------------------------------------------------
+ VMA INFO: Log Level                      INFO                       [VMA_TRACELEVEL]
+ VMA INFO: Thread mode                    Multi mutex lock           [VMA_THREAD_MODE]
+ VMA INFO: ---------------------------------------------------------------------------
 Server 1 is running
-Server Index in Switch is 0. Be careful
+Server Index in Switch is 0.
 The dispatcher is running
-Tx/Rx Worker 3 is running with Socket 3  
-Tx/Rx Worker 4 is running with Socket 3  
-Tx/Rx Worker 1 is running with Socket 3  
-Tx/Rx Worker 5 is running with Socket 3  
-Tx/Rx Worker 2 is running with Socket 3  
-Tx/Rx Worker 6 is running with Socket 3  
-Tx/Rx Worker 7 is running with Socket 3  
-Tx/Rx Worker 8 is running with Socket 3  
-Tx/Rx Worker 9 is running with Socket 3  
-Tx/Rx Worker 11 is running with Socket 3  
-Tx/Rx Worker 12 is running with Socket 3  
-Tx/Rx Worker 10 is running with Socket 3  
-Tx/Rx Worker 14 is running with Socket 3  
-Tx/Rx Worker 13 is running with Socket 3  
-Tx/Rx Worker 15 is running with Socket 3  
+Tx/Rx Worker 1 is running with Socket 19  
 ```
 
-
-To evaluate LAEDGE, one node should be the coordinator. To run the coordinator, set `PROTOCOL_ID` to 99.<br>
-`LD_PRELOAD=libvma.so VMA_THREAD_MODE=2 ./server 15 99 0`
+5-1. To evaluate LAEDGE, one node should be the coordinator. To run the coordinator, set `PROTOCOL_ID` to 99. Also note that the minimum required number for LAEDGE is 4 (1 client, 1 coordinator, 2 servers) <br>
+`LD_PRELOAD=libvma.so VMA_THREAD_MODE=2 ./server 1 99 0`
 
 
 6. Turn on the client program in client nodes by using the following command. <br>
-`Usage: ./client NUM_SRV Protocol Distribution TIME_EXP TARGET_QPS`<br>
+`Usage: ./client NUM_SRV PROTOCOL_ID DIST TIME_EXP TARGET_QPS`<br>
 `NUM_SRV`: The number of server nodes.<br>
-`Protocol`: The ID of protocols to use. Same as in the server-side one.<br>
-`Distribution`: Same as in the server-side one, but this is only for the naming of the log file.<br>
-`TIME_EXP`: The experiment time. Set this to more than 20 because there is a warm-up effect at the early phase of the experiment.<br>
-`TARGET_QPS`: The target throughput (=Tx throughput). This should be large enough (recommend to use larger than 10000) since there are accuracy issues when computing inter-arrival time with a very low value. For example, if you set this less than 2000, the clients do not send requests.
+`PROTOCOL_ID`: The ID of protocols to use. Same as in the server-side one.<br>
+`DIST`: Same as in the server-side one, but this is only for the naming of the log file.<br>
+`TIME_EXP`: The experiment time. Set this to more than 20 because there is a warm-up effect at the early phase of the experiment. For functionality check, it is okay to use a short time like 5 seconds.<br>
+`TARGET_QPS`: The target throughput (=Tx throughput). This should be large enough (recommend to use larger than 5000) since there are accuracy issues when computing inter-arrival time with a very low value. For example, if you set this less than 2000, the clients do not send requests. 
 
-For example, to reproduce a result of NetClone in Figure 7 (a), use the following command:<br>
-`LD_PRELOAD=libvma.so VMA_THREAD_MODE=2 ./client 6 3 0 20 1000000` <br>
+For our minimal working example, use the command as follows:<br>
+`LD_PRELOAD=libvma.so VMA_THREAD_MODE=2 ./client 2 3 0 20 20000` <br>
 The output should be like ... <br>
 ```
-root@node2:/home/netclone# LD_PRELOAD=libvma.so VMA_THREAD_MODE=2 ./client 6 3 0 5 100000
-Client 2 is running 
-Rx Worker 0 is running with Socket 3
-Tx Worker 0 is running with Socket 3 
-Tx Worker 0 done with 500000 reqs, Tx throughput: 99432 RPS 
+root@node1:/home/netclone# LD_PRELOAD=libvma.so VMA_THREAD_MODE=2 ./client 2 3 0 20 20000
+ VMA INFO: ---------------------------------------------------------------------------
+ VMA INFO: VMA_VERSION: 9.7.2-1 Release built on Nov 14 2022 17:03:52
+ VMA INFO: Cmd Line: ./client 2 3 0 20 20000
+ VMA INFO: OFED Version: MLNX_OFED_LINUX-5.8-1.1.2.1:
+ VMA INFO: ---------------------------------------------------------------------------
+ VMA INFO: Log Level                      INFO                       [VMA_TRACELEVEL]
+ VMA INFO: Thread mode                    Multi mutex lock           [VMA_THREAD_MODE]
+ VMA INFO: ---------------------------------------------------------------------------
+Client 1 is running 
+Rx Worker 0 is running with Socket 19
+Tx Worker 0 is running with Socket 19 
+Tx Worker 0 done with 400000 reqs, Tx throughput: 19303 RPS 
 Rx Worker 0 finished with 0 redundant replies 
-Total time: 5.028971 seconds 
-Total received pkts: 500000 
-Rx Throughput: 99423 RPS 
+Total time: 20.790212 seconds 
+Total received pkts: 400000 
+Rx Throughput: 19239 RPS 
 ```
 
-
-7. When the experiment is finished, the clients report Tx/Rx throughput, experiment time, and other related information. Request latency in microseconds is logged as a text file like `log-0-0-0-6-15-1-1-20-103000.txt`. The end line of the log contains the total experiment time. Therefore, when you analyze the log, you should be careful.
+7. When the experiment is finished, the clients report Tx/Rx throughput, experiment time, and other related information. Request latency in microseconds is logged as a text file. The end line of the log contains the total experiment time. Therefore, when you analyze the log, you should be careful.
 
 
 # Citation

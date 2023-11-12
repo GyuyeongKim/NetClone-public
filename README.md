@@ -66,7 +66,7 @@ Our artifact is tested on:
    - Line 3 `ip_list` // IP addresses of nodes.
    - Line 8 `port_list` // port number of nodes.
    - Line 13 `mac_list` // MAC addresses of nodes.
-   - 
+     
 4. Compile `netclone.p4` using the P4 compiler (we used `p4build.sh` provided by Intel). You can compile it manually with the following commands.
    - `cmake ${SDE}/p4studio -DCMAKE_INSTALL_PREFIX=${SDE_INSTALL} -DCMAKE_MODULE_PATH=${SDE}/cmake -DP4_NAME=netclone -DP4_PATH=${SDE}/netclone.p4`
    - `make`

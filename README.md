@@ -37,7 +37,7 @@ Our artifact is tested on:
 - python 3.8.10
 - Intel P4 Studio SDE 9.7.0 and BSP 9.7.0. 
 
-# Testbed illustration
+# Minimal Testbed illustration example (1 client + 2 servers)
 
 ![Testbed](testbednetclone.png)
 
@@ -45,7 +45,7 @@ Our artifact is tested on:
 
 ## Client/Server-side
 1. Place `client.c`, `server.c`, and `Makefile` in the home directory (We used `/home/netclone` in the paper).
-2. Configure cluster-related details in `client.c` and `server.c`, such as IP and MAC addresses. Note that IP configuration is important in this artifact. Each node should have a linearly-increasing IP address. For example, we use 10.0.1.101 for node1, 10.0.1.102 for node2, and so on. This is because the server program automatically assigns the server ID using the last digit of the IP address. e.g., for 10.0.1.103, the server ID is 3 (cuz the last digit of .103 is 3).
+2. Configure cluster-related details in `client.c` and `server.c`, such as IP and MAC addresses. Note that IP configuration is important in this artifact. Each node should have a linearly-increasing IP address. For example, we use 10.0.1.101 for node1, 10.0.1.102 for node2, and 10.0.1.103 for node3. This is because the server program automatically assigns the server ID using the last digit of the IP address. e.g., for 10.0.1.103, the server ID is 3 (cuz the last digit of .103 is 3).
 
    `client.c`
    
@@ -58,17 +58,16 @@ Our artifact is tested on:
    - Line 35 NUM_CLI // the number of clients
    - Line 36 NUM_SRV // the number of servers. This is only for LAEDGE coordinator.
    - Lines 280~289 // src_ip and dst_ip arrays for LAEDGE coordinator. The reason why `10.0.1.103` (node3) is absent is, because node3 is the coordinator.
-   - Lines 707~711 //Please set the interface name correctly. By default, it is set to `enp1s0np0` or `enp1s0np0`.
+   - Lines 707~711 // Please set the interface name correctly. By default, it is set to `enp1s0np0` or `enp1s0np0`.
 4. Compile `client.c` and `server.c` using `make`.
 
 ## Switch-side
 1. Place `controller.py` and `netclone.p4` in the SDE directory.
 2. Configure cluster-related information in the `netclone.p4`.
-   - Line 10 MAX_SRV // the maximum number of servers in the testbed
    - Line 552 ig_initr_md.ingress_port // we currently use 452 for recirculation. 452 is the recirculation port for pipeline 3 in our APS BF6064XT. Check your switch spec and set it correctly. 
 3. Configure cluster-related information in the `controller.py`. This includes IP and MAC addresses, and port-related information.
-   - Lines 21~25 // Several cluster-related values
-   - Lines 104~137 // IP, Port, MAC information. The last address is the port of the switch control plane (but NetClone does not use it. so you can remove it).
+   - Lines 21~25 // Several cluster-related information
+   - Lines 104~137 // IP, Port, and MAC information.
    - Lines 162~484// Cloning-related configuration. The number of entries in the tables depends on the number of servers.
 4. Compile `netclone.p4` using the P4 compiler (we used `p4build.sh` provided by Intel). You can compile it manually with the following commands.
    - `cmake ${SDE}/p4studio -DCMAKE_INSTALL_PREFIX=${SDE_INSTALL} -DCMAKE_MODULE_PATH=${SDE}/cmake -DP4_NAME=netclone -DP4_PATH=${SDE}/netclone.p4`

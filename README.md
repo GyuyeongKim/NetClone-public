@@ -20,7 +20,7 @@ This repository contains the following code segments:
 - A programmable switch with Intel Tofino1 ASIC is needed.
 
 Our artifact is tested on:
-- 6 nodes (2 clients and 4 servers) with single-port Nvidia 100GbE MCX515A-CCAT ConnectX-5 NIC
+- 8 nodes (2 clients and 6 servers) with single-port Nvidia 100GbE MCX515A-CCAT ConnectX-5 NIC
 - APS BF6064XT switch with Intel Tofino1 ASIC
 
 # Software dependencies

@@ -19,7 +19,7 @@ This repository contains the following code segments:
 - Nodes should be equipped with an Nvidia ConnectX-5 NIC or similar NIC supporting Nvidia VMA for kernel-bypass networking. Experiments can still be run without the VMA-capable NICs, but this may result in increased latency and decreased throughput due to the application's reliance on a legacy network stack. 
 - A programmable switch with Intel Tofino1 ASIC is needed.
 
-Our artifact for a minimal example is tested on:
+Our artifact for a minimal working example is tested on:
 - 3 nodes (1 client and 2 servers) with single-port Nvidia 100GbE MCX515A-CCAT ConnectX-5 NIC
 - APS BF6064XT switch with Intel Tofino1 ASIC
 
@@ -37,7 +37,7 @@ Our artifact is tested on:
 - python 3.8.10
 - Intel P4 Studio SDE 9.7.0 and BSP 9.7.0. 
 
-# Minimal Testbed illustration example (1 client + 2 servers)
+# Minimal working example (1 client + 2 servers)
 
 ![Testbed](testbednetclone.png)
 

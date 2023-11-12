@@ -192,7 +192,7 @@ bfruntime gRPC server started on 0.0.0.0:50052
 
 bfshell> Starting UCLI from bf-shell 
 ```
-4. In terminal 2, configure ports manually or `run_bfshell.sh`. It is recommended to configure ports to 100Gbps.
+3. In terminal 2, configure ports manually or `run_bfshell.sh`. It is recommended to configure ports to 100Gbps.
  - After starting the switch program, run `./run_bfshell.sh` and type `ucli` and `pm`.
  - You can create ports like `port-add #/- 100G NONE` and `port-enb #/-`. It is recommended to turn off auto-negotiation using `an-set -/- 2`. This part requires knowledge of Intel Tofino-related stuff. You can find more information in the switch manual or on Intel websites.
 4. In terminal 3, run the controller using `python3 controller.py 3 2 0` in the SDE directory for the minimal working example.
@@ -231,6 +231,9 @@ root@tofino:/home/admin/bf-sde-9.7.0#
 `PROTOCOL_ID`: The ID of protocols to use. 0 is the baseline (no cloning, NoCLONE), 1 is C-Clone (CLICLONE in the code), 2 is LAEDGE, 3 is NetClone.<br>
 `DIST`: The distribution of RPC workloads. For example, 0 is exponential (25us), 1 is bimodal (25us,250us), and etc. Check the details in the code (lines 205~208).<br>
 
+To evaluate LAEDGE, one node should be the coordinator. To run the coordinator, set `PROTOCOL_ID` to 99. Also note that the minimum required number for LAEDGE is 4 (1 client, 1 coordinator, 2 servers) <br>
+`LD_PRELOAD=libvma.so VMA_THREAD_MODE=2 ./server 1 99 0` <br>
+
 For our minimal working example, use the command as follows:<br>
 `LD_PRELOAD=libvma.so VMA_THREAD_MODE=2 ./server 1 3 0` <br>
 If done well, the output should be as follows.<br>
@@ -249,23 +252,20 @@ Server 1 is running
 Server Index in Switch is 0.
 The dispatcher is running
 Tx/Rx Worker 1 is running with Socket 19  
-```
-
-5-1. To evaluate LAEDGE, one node should be the coordinator. To run the coordinator, set `PROTOCOL_ID` to 99. Also note that the minimum required number for LAEDGE is 4 (1 client, 1 coordinator, 2 servers) <br>
-`LD_PRELOAD=libvma.so VMA_THREAD_MODE=2 ./server 1 99 0`
-
-
+``` 
+   
 6. Turn on the client program in client nodes by using the following command. <br>
 `Usage: ./client NUM_SRV PROTOCOL_ID DIST TIME_EXP TARGET_QPS`<br>
 `NUM_SRV`: The number of server nodes.<br>
 `PROTOCOL_ID`: The ID of protocols to use. Same as in the server-side one.<br>
 `DIST`: Same as in the server-side one, but this is only for the naming of the log file.<br>
 `TIME_EXP`: The experiment time. Set this to more than 20 because there is a warm-up effect at the early phase of the experiment. For functionality check, it is okay to use a short time like 5 seconds.<br>
-`TARGET_QPS`: The target throughput (=Tx throughput). This should be large enough (recommend to use larger than 5000) since there are accuracy issues when computing inter-arrival time with a very low value. For example, if you set this less than 2000, the clients do not send requests. 
+`TARGET_QPS`: The target throughput (=Tx throughput). This should be large enough (recommend to use larger than 5000) since there are accuracy issues when computing inter-arrival time with a very low value.       For example, if you set this less than 2000, the clients do not send requests. 
 
 For our minimal working example, use the command as follows:<br>
 `LD_PRELOAD=libvma.so VMA_THREAD_MODE=2 ./client 2 3 0 20 20000` <br>
 The output should be like ... <br>
+
 ```
 root@node1:/home/netclone# LD_PRELOAD=libvma.so VMA_THREAD_MODE=2 ./client 2 3 0 20 20000
  VMA INFO: ---------------------------------------------------------------------------

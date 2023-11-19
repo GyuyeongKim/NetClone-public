@@ -286,7 +286,7 @@ Total received pkts: 400000
 Rx Throughput: 19239 RPS 
 ```
 
-7. When the experiment is finished, the clients report Tx/Rx throughput, experiment time, and other related information. Request latency in microseconds is logged as a text file. The end line of the log contains the total experiment time. Therefore, when you analyze the log, you should be careful. A sample log file can be found in `log/log-3-1-0-2-15-1-0-5-2000.txt` (the sample log is the result without VMA).
+7. When the experiment is finished, the clients report Tx/Rx throughput, experiment time, and other related information. Request latency in microseconds is logged as a text file. The end line of the log contains the total experiment time. Therefore, when you analyze the log, you should be careful. A sample log file can be found in `log/log-3-1-0-2-15-1-0-5-2000.txt` in this repository (the sample log is the result without VMA).
 
 # Runtime accuracy
 

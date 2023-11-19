@@ -286,8 +286,51 @@ Total received pkts: 400000
 Rx Throughput: 19239 RPS 
 ```
 
-7. When the experiment is finished, the clients report Tx/Rx throughput, experiment time, and other related information. Request latency in microseconds is logged as a text file. The end line of the log contains the total experiment time. Therefore, when you analyze the log, you should be careful.
+7. When the experiment is finished, the clients report Tx/Rx throughput, experiment time, and other related information. Request latency in microseconds is logged as a text file. The end line of the log contains the total experiment time. Therefore, when you analyze the log, you should be careful. A sample log file can be found in `log/log-3-1-0-2-15-1-0-5-2000.txt`.
 
+# Runtime accuracy
+
+At lines 306 ~ 318 in `server.c`, there are dummy RPC work lines. Here, the value `'0.197'` determines the accuracy of the runtime.
+```
+          /* Do dummy RPC work*/
+          uint64_t i = 0;
+          if (rand() / (double) RAND_MAX < probability) run_ns = run_ns * multiple;
+          do {
+              asm volatile ("nop");
+              i++;
+          } while (i / 0.197 < (double) run_ns);
+```
+
+These lines are based on the RackSched artifact. https://github.com/netx-repo/RackSched/blob/master/server_code/shinjuku/dp/core/worker.c (See lines 121 ~ 125).
+```
+        uint64_t i = 0;
+        do {
+                asm volatile ("nop");
+                i++;
+        } while ( i / 0.58 < req->runNs);
+```
+
+In our testbed, when I used `'0.58'` as RackSched does, the actual runtime was not like what we targeted. For example, when I set `run_ns` to 25000 (25us), it lasts for like 30us.
+So we tuned the value and found the correct value `0.197` for my testbed.
+
+The runtime accuracy can be checked by fixing the runtime and adding timestamp like..
+```
+       if (n > 0) {
+          if(DIST==0) run_ns = 25000; //fixing runtime
+          else if(DIST==1) run_ns = bimodal_dist(90,small,large);
+          else if(DIST==2) run_ns = exp_dist(medium);
+          else if(DIST==3) run_ns = bimodal_dist(90,medium,vlarge);
+          if (rand() / (double) RAND_MAX < probability) run_ns = run_ns * multiple;
+          uint64_t mmm = get_cur_ns();  // adding  timestamp
+           /* Do dummy RPC work*/
+          uint64_t i = 0;
+          do {
+              asm volatile ("nop");
+              i++;
+          } while (i / 0.197 < (double) run_ns); 
+          printf("%u\n",(get_cur_ns()-mmm)/1000); // print the runtime to check runtime accuracy
+```
+If your logged latency looks like unexpected (too high or too low), check the runtime accuracy and tune it.
 
 # Citation
 

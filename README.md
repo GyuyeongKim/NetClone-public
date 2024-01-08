@@ -27,10 +27,10 @@ Our artifact for a minimal working example is tested on:
 Our artifact is tested on:
 
 **Clients and servers:**
-- Ubuntu 20.04 LTS with Linux kernel 5.15.
-- Mellanox OFED drivers for NICs. The version is 5.8-1.2.1 LTS.
-- gcc 9.4.0
-- libvma 9.4.0 for VMA
+- Ubuntu 20.04 LTS with Linux kernel 5.15 and Ubuntu 22.04 LTS with Linux kernel 6.2.0.
+- Mellanox OFED NIC drivers 5.8-1.2.1 LTS and 23.10-1.1.9 LTS.
+- gcc 9.4.0 and 11.4.0.
+- VMA libvma 9.4.0 and 9.8.40 LTS
 
 **Switch:**
 - Ubuntu 20.04 LTS with Linux kernel 5.4.

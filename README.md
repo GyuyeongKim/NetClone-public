@@ -336,7 +336,7 @@ The runtime accuracy can be checked by fixing the runtime and adding timestamp l
               asm volatile ("nop");
               i++;
           } while (i / 0.197 < (double) run_ns); 
-          printf("%u\n",(get_cur_ns()-mmm)/1000); // print the runtime to check runtime accuracy
+          printf("%lu\n",(get_cur_ns()-mmm)); // print the runtime to check runtime accuracy
 ```
 If your logged latency looks like unexpected (too high or too low), check the runtime accuracy and tune it.
 

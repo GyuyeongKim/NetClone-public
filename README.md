@@ -27,10 +27,16 @@ Our artifact for a minimal working example is tested on:
 Our artifact is tested on:
 
 **Clients and servers:**
-- Ubuntu 20.04 LTS with Linux kernel 5.15 and Ubuntu 22.04 LTS with Linux kernel 6.2.0.
-- Mellanox OFED NIC drivers 5.8-1.2.1 LTS and 23.10-1.1.9 LTS.
-- gcc 9.4.0 and 11.4.0.
-- VMA libvma 9.4.0 and 9.8.40 LTS
+- Ubuntu 20.04 LTS with Linux kernel 5.15.
+- Mellanox OFED NIC drivers 5.8-1.2.1 LTS.
+- gcc 9.4.0.
+- VMA libvma 9.4.0.
+
+We also tested our artifact on:
+- Ubuntu 22.04 LTS with Linux kernel 6.5.0.
+- Mellanox OFED NIC drivers 23.10-1.1.9 LTS.
+- gcc 11.4.0.
+- VMA libvma 9.8.40 LTS.
 
 **Switch:**
 - Ubuntu 20.04 LTS with Linux kernel 5.4.
@@ -312,6 +318,7 @@ These lines are based on the RackSched artifact. https://github.com/netx-repo/Ra
 
 In our testbed, when I used `'0.58'` as RackSched does, the actual runtime was not like what we targeted. For example, when I set `run_ns` to 25000 (25us), it lasts for like 30us.
 So we tuned the value and found the correct value `0.197` for my testbed.
+*Update: We find that 0.197 is the value for Linux kernel 5.15 and 0.64 for Linux kernel 6.5.0. So, please check the actual runtime of your testbed environments.
 
 The runtime accuracy can be checked by fixing the runtime and adding timestamp like..
 ```
@@ -321,6 +328,7 @@ The runtime accuracy can be checked by fixing the runtime and adding timestamp l
           else if(DIST==2) run_ns = exp_dist(medium);
           else if(DIST==3) run_ns = bimodal_dist(90,medium,vlarge);
           if (rand() / (double) RAND_MAX < probability) run_ns = run_ns * multiple;
+          run_ns = 10000; // To find the correct value, we use a static runtime of 10us.
           uint64_t mmm = get_cur_ns();  // adding  timestamp
            /* Do dummy RPC work*/
           uint64_t i = 0;

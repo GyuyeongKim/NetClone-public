@@ -333,9 +333,10 @@ report peak throughput in one of two equivalent ways:
   microbursts and does not move the headline number appreciably.
 
 Either convention is fine as long as it is applied consistently
-within a comparison.  Runs with loss > 2 % are reported under
-congestion rather than at steady state and should be re-run with a
-lower `TARGET_QPS` before any number is read off.
+within a comparison.  **Do not report runs with loss > 2 %** — the
+system is congested rather than at a steady-state operating point,
+so the throughput / latency numbers are not meaningful.  Lower
+`TARGET_QPS` and re-run instead.
 
 Per-request latency (in microseconds) is saved as a text file
 alongside the binary, with the last line containing the total

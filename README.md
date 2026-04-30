@@ -30,9 +30,9 @@ This repository contains the artifact for evaluating NetClone, including:
 For experienced operators who just want the end-to-end flow:
 
 1. **Build.**  Run `make` on every host; compile `netclone.p4` against the SDE on the switch.
-2. **Per-node one-time setup.**  Edit and `sudo ./scripts/setup_arp.sh` (static ARP for the 100 G data network), then `sudo ./scripts/host_setup.sh` (sysctl + hugepages).
+2. **Per-node one-time setup.**  Edit and `sudo ./scripts/setup_arp.sh` (static ARP for the data-plane network), then `sudo ./scripts/host_setup.sh` (sysctl + hugepages).
 3. **Per-shell setup.**  In every terminal that will launch a binary, run `source scripts/set_memlock_unlimited.sh` (must be `source`, not `bash` — see [System Tuning](#2-system-tuning)).
-4. **Switch.**  Start `run_switchd.sh -p netclone`, bring up the 100 G ports, then `python3 controller.py 3 2 0`.
+4. **Switch.**  Start `run_switchd.sh -p netclone`, bring up the data-plane ports, then `python3 controller.py 3 2 0`.
 5. **Experiment.**  Start `./server NUM_WORKERS PROTOCOL_ID DIST` on each server host, then `./client NUM_SRV PROTOCOL_ID DIST TIME_EXP TARGET_QPS` on the client host.
 6. **Sanity-check the result.**  Read `Packet loss rate` from the client output — keep it under 2 % for steady-state numbers (see [Interpret the Result](#5-interpret-the-result)).
 
@@ -210,7 +210,7 @@ files are short, idempotent, and meant to be edited per cluster.
 #### 1. Network Configuration
 
 The switch does not handle host network setup, so every host that
-participates on the 100 Gbps data network needs a full ARP table.
+participates on the data-plane network needs a full ARP table.
 Edit the `PEERS` array in [`scripts/setup_arp.sh`](scripts/setup_arp.sh)
 so it lists every `(data-plane IP, NIC MAC)` pair in your testbed
 (a few example entries from our cluster are kept as a starting
@@ -219,8 +219,8 @@ point), then run on every host:
 sudo ./scripts/setup_arp.sh
 arp -an   # verify
 ```
-Confirm reachability with `ping` over the 100 Gbps interface before
-continuing.
+Confirm reachability with `ping` over the data-plane interface
+before continuing.
 
 #### 2. System Tuning
 

@@ -360,12 +360,10 @@ do {
 This approach is adapted from the [RackSched artifact](https://github.com/netx-repo/RackSched/blob/master/server_code/shinjuku/dp/core/worker.c) (lines 121-125).
 
 The divisor controls how many `nop` iterations correspond to one
-nanosecond of work, and **must be calibrated for your environment**:
-
-| Linux Kernel | Calibrated Value |
-|-------------|-----------------|
-| 5.15 | `0.197` |
-| 6.5.0 | `0.64` |
+nanosecond of work, and **must be calibrated for your environment**.
+Two of our test machines, for example, ended up needing very
+different values (`0.197` and `0.64`); these are reference points,
+not defaults you should reuse blindly.
 
 To calibrate, fix the runtime and measure actual execution time:
 
@@ -386,10 +384,9 @@ accordingly.
 
 ### Why the divisor varies across environments
 
-The label "Linux Kernel" in the table above is convenient but
-slightly misleading — what actually drives the divisor is how many
-CPU cycles one iteration of the `do { nop; i++; } while (...)` loop
-takes on a given machine, which depends on several factors:
+What drives the divisor is how many CPU cycles one iteration of the
+`do { nop; i++; } while (...)` loop takes on a given machine, which
+depends on several factors:
 
 - **CPU clock frequency and microarchitecture.**  A 5 GHz CPU with
   high IPC retires the loop body in fewer wall-clock nanoseconds
@@ -401,20 +398,16 @@ takes on a given machine, which depends on several factors:
   emits (whether it unrolls, register-allocates `i`, or fuses the
   comparison) directly changes cycles per iteration; switching gcc
   versions or `-O` flags is enough to invalidate the calibration.
-- **Speculative-execution mitigations and CPU governors.**  Recent
-  kernels enable additional Spectre / MDS / RetBleed mitigations
-  by default and ship a different default `cpufreq` governor
-  (`schedutil` instead of `ondemand` on many distros).  These
-  settings change indirect-branch and frequency-scaling overhead
-  in the busy-loop and explain most of the apparent "kernel
-  dependence" — two of our test machines that happened to run
-  different kernel versions produced 0.197 vs. 0.64 not because of
-  the kernel as such, but because the combined effect of those
-  defaults plus the CPU change moved cycles per iteration.
+- **Speculative-execution mitigations and CPU governors.**
+  Spectre / MDS / RetBleed mitigations and the active `cpufreq`
+  governor (e.g. `schedutil` vs. `ondemand`) change indirect-branch
+  and frequency-scaling overhead inside the busy-loop, so toggling
+  any of those — for example through a system update or a sysctl
+  change — can move cycles per iteration on the same hardware.
 
-In short: re-calibrate per machine (and after any kernel /
-compiler / mitigation change) using the snippet above, rather than
-copying the table verbatim.
+In short: re-calibrate per machine (and after any compiler or
+runtime-configuration change) using the snippet above, rather than
+copying our reference values verbatim.
 
 ### More robust alternatives (not used in this artifact)
 
@@ -440,12 +433,12 @@ count, at the cost of small accuracy or implementation tradeoffs:
    busy-loop semantics; only the constant changes.
 
 > **Note:** the published NetClone numbers were collected using the
-> original busy-loop with the manually-calibrated divisors above,
-> not either of these alternatives.  We document the alternatives
-> here so users porting the artifact to new hardware know what
-> their options are if the manual-calibration workflow becomes a
-> nuisance, but switching to them will produce results that are no
-> longer bit-for-bit comparable to the SIGCOMM '23 numbers.
+> original busy-loop with manually-calibrated divisors, not either
+> of these alternatives — we have not run them ourselves.  We
+> document them here so users porting the artifact to new hardware
+> know what their options are if the manual-calibration workflow
+> becomes a nuisance, but switching to either may produce results
+> that are no longer directly comparable to the SIGCOMM '23 numbers.
 
 ## Citation
 

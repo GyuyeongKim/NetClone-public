@@ -13,6 +13,7 @@ This repository contains the artifact for evaluating NetClone, including:
 
 ## Table of Contents
 
+- [Quick Start](#quick-start)
 - [Hardware Requirements](#hardware-requirements)
 - [Software Requirements](#software-requirements)
 - [Installation](#installation)
@@ -23,6 +24,19 @@ This repository contains the artifact for evaluating NetClone, including:
   - [Client/Server-side Setup](#clientserver-side-setup)
 - [Runtime Accuracy Tuning](#runtime-accuracy-tuning)
 - [Citation](#citation)
+
+## Quick Start
+
+For experienced operators who just want the end-to-end flow:
+
+1. **Build.**  Run `make` on every host; compile `netclone.p4` against the SDE on the switch.
+2. **Per-node one-time setup.**  Edit and `sudo ./scripts/setup_arp.sh` (static ARP for the 100 G data network), then `sudo ./scripts/host_setup.sh` (sysctl + hugepages).
+3. **Per-shell setup.**  In every terminal that will launch a binary, run `source scripts/set_memlock_unlimited.sh` (must be `source`, not `bash` — see [System Tuning](#2-system-tuning)).
+4. **Switch.**  Start `run_switchd.sh -p netclone`, bring up the 100 G ports, then `python3 controller.py 3 2 0`.
+5. **Experiment.**  Start `./server NUM_WORKERS PROTOCOL_ID DIST` on each server host, then `./client NUM_SRV PROTOCOL_ID DIST TIME_EXP TARGET_QPS` on the client host.
+6. **Sanity-check the result.**  Read `Packet loss rate` from the client output — keep it under 2 % for steady-state numbers (see [Interpret the Result](#5-interpret-the-result)).
+
+The rest of this document expands each step.
 
 ## Hardware Requirements
 
@@ -190,31 +204,49 @@ python3 controller.py 3 2 0
 
 ### Client/Server-side Setup
 
+We ship a small `scripts/` directory with the three pieces below — the
+files are short, idempotent, and meant to be edited per cluster.
+
 #### 1. Network Configuration
 
-Ensure ARP tables and IP settings are correct on all nodes:
+The switch does not handle host network setup, so every host that
+participates on the 100 Gbps data network needs a full ARP table.
+Edit the `PEERS` array in [`scripts/setup_arp.sh`](scripts/setup_arp.sh)
+so it lists every `(data-plane IP, NIC MAC)` pair in your testbed
+(a few example entries from our cluster are kept as a starting
+point), then run on every host:
 ```bash
-# Set ARP entries on each node for every other node
-arp -s <IP_ADDRESS> <MAC_ADDRESS>
-# Example: on node 2 and 3, add node 1's entry
-arp -s 10.0.1.101 0c:42:a1:2f:12:e6
+sudo ./scripts/setup_arp.sh
+arp -an   # verify
 ```
-
-Verify connectivity:
-```bash
-ping 10.0.1.101
-```
+Confirm reachability with `ping` over the 100 Gbps interface before
+continuing.
 
 #### 2. System Tuning
 
-Run the following on **all nodes**:
+**Kernel-bypass tuning (system-wide).**  Sets `net.core.rmem_*`,
+`kernel.shmmax`, and the hugepage pool.  These are kernel-level
+settings and persist for the rest of the boot, so the script only
+needs to run once per node per boot:
 ```bash
-sysctl -w net.core.rmem_max=104857600
-sysctl -w net.core.rmem_default=104857600
-echo 2000000000 > /proc/sys/kernel/shmmax
-echo 2048 > /proc/sys/vm/nr_hugepages
-ulimit -l unlimited
+sudo ./scripts/host_setup.sh
 ```
+
+**Locked-memory limit (per-shell).**  VMA registers huge pages with
+the NIC and needs `RLIMIT_MEMLOCK` lifted; the default 64 KiB cap
+makes every binary fail at startup.  Run in *every* terminal that
+will launch a `client` / `server` binary:
+```bash
+source scripts/set_memlock_unlimited.sh
+```
+> ⚠️ **Source it, do not `bash` it.**  `ulimit` is a shell builtin
+> and only affects the shell that executes it.  Running
+> `bash scripts/set_memlock_unlimited.sh` raises the limit for the
+> script's subshell only, so any binary you launch from your
+> interactive shell afterwards will still hit the default cap.
+> For a permanent cluster-wide fix, add
+> `*  -  memlock  unlimited` to `/etc/security/limits.conf` and
+> log out / log in once; after that, this step is not needed.
 
 #### 3. Start Servers
 
@@ -269,14 +301,46 @@ Rx Worker 0 finished with 0 redundant replies
 Total time: 20.790212 seconds
 Total received pkts: 400000
 Rx Throughput: 19239 RPS
+Packet loss rate: 0.000000
 ```
 </details>
 
-#### 5. Results
+#### 5. Interpret the Result
 
-When the experiment finishes, the client reports Tx/Rx throughput and experiment time. Request latency (in microseconds) is saved as a text file, with the last line containing total experiment time.
+When the experiment finishes the client reports Tx / Rx throughput,
+total experiment time, and a saturation summary:
 
-A sample log file is available at `log/log-3-1-0-2-15-1-0-5-2000.txt` (captured without VMA).
+```
+Total received pkts: 400000
+Rx Throughput: 19239 RPS
+Packet loss rate: 0.000000
+```
+
+`Packet loss rate` is `1 − (received_replies / offered_requests)`,
+already expressed as a percentage.  Any non-zero value means the
+system has started dropping requests — i.e. it is at or beyond
+saturation — so use the loss rate as the saturation indicator and
+report peak throughput in one of two equivalent ways:
+
+- **Conservative (loss = 0 %).**  Walk `TARGET_QPS` upward in a
+  sweep and report the largest offered rate at which the run still
+  finishes with a 0 % loss rate.  The throughput from the *next*
+  step in the sweep (the first one to show non-zero loss) is
+  saturated and should not be reported.
+- **Practical (loss ≤ 2 %).**  Treat any run with loss ≤ 2 % as
+  saturated and report its `Rx Throughput` directly.  The small
+  residual loss covers end-of-experiment tail effects and minor
+  microbursts and does not move the headline number appreciably.
+
+Either convention is fine as long as it is applied consistently
+within a comparison.  Runs with loss > 2 % are reported under
+congestion rather than at steady state and should be re-run with a
+lower `TARGET_QPS` before any number is read off.
+
+Per-request latency (in microseconds) is saved as a text file
+alongside the binary, with the last line containing the total
+experiment time.  A sample log is available at
+`log/log-3-1-0-2-15-1-0-5-2000.txt` (captured without VMA).
 
 ## Runtime Accuracy Tuning
 

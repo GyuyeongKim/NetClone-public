@@ -55,7 +55,7 @@ The minimum required number of nodes for LAEDGE is 4 (1 client, 1 coordinator, 2
 pthread_mutex_t lock_filter_read = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t lock_filter = PTHREAD_MUTEX_INITIALIZER;
 
-bool* redundnacy_filter;
+bool* redundancy_filter;
 bool* redundancy_filters[NUM_CLI];
 
 void initialize_filter_server() {
@@ -74,7 +74,7 @@ void initialize_filter_server() {
 
 
 void initialize_filter_client() {
-    redundnacy_filter = (bool*) malloc((MAX_REQUESTS)* sizeof(bool));
+    redundancy_filter = (bool*) malloc((MAX_REQUESTS)* sizeof(bool));
 }
 
 

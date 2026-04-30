@@ -173,7 +173,7 @@ void *rx_t(void *arg){
   uint64_t elapsed_time = get_cur_ns();
 	uint64_t timer = get_cur_ns();
 	int n = 0;
-  int redundnacy_counter = 0;
+  int redundancy_counter = 0;
   while(1){
 		if((get_cur_ns() - timer  ) > 1e9 )  break; // If Rx thread does not receive any pkt more than 1 seconds, then terminate the program.
 
@@ -194,16 +194,16 @@ void *rx_t(void *arg){
       if(n>0){
         if(ntohl(RecvBuffer.op) == OP_RESP){
           pthread_mutex_lock(&lock_filter_read);
-          bool redun = redundnacy_filter[RecvBuffer.seq]; // Check whether this is duplicate response
+          bool redun = redundancy_filter[RecvBuffer.seq]; // Check whether this is duplicate response
           pthread_mutex_unlock(&lock_filter_read);
           if (!redun){ // If not duplicate response, then record latency
       			fprintf(fd,"%lu\n",(get_cur_ns() - RecvBuffer.latency)/1000); // write latency in microseconds
       			local_pkt_counter[i]++;
       			timer = get_cur_ns();
             pthread_mutex_lock(&lock_filter);
-            redundnacy_filter[RecvBuffer.seq] = true;
+            redundancy_filter[RecvBuffer.seq] = true;
             pthread_mutex_unlock(&lock_filter);
-          } else redundnacy_counter++; // Otherwise, just increase redundancy counter.
+          } else redundancy_counter++; // Otherwise, just increase redundancy counter.
         }
       }
     }
@@ -225,16 +225,16 @@ void *rx_t(void *arg){
         if(ntohl(RecvBuffer.op) == OP_RESP){
           RecvBuffer.seq = ntohl(RecvBuffer.seq);
           pthread_mutex_lock(&lock_filter_read);
-          bool redun = redundnacy_filter[RecvBuffer.seq];
+          bool redun = redundancy_filter[RecvBuffer.seq];
           pthread_mutex_unlock(&lock_filter_read);
           if (!redun){ // if not redundancy, write latency
       			fprintf(fd,"%lu\n",(get_cur_ns() - RecvBuffer.latency)/1000); // write latency in microseconds
       			local_pkt_counter[i]++;
       			timer = get_cur_ns();
             pthread_mutex_lock(&lock_filter);
-            redundnacy_filter[RecvBuffer.seq] = true;
+            redundancy_filter[RecvBuffer.seq] = true;
             pthread_mutex_unlock(&lock_filter);
-          } else redundnacy_counter++; // if redundancy, drop the pkt and count it.
+          } else redundancy_counter++; // if redundancy, drop the pkt and count it.
         }
       }
     }
@@ -243,7 +243,7 @@ void *rx_t(void *arg){
   /* Finish Rx worker and report stats. */
 	double tot_time = ((get_cur_ns() - elapsed_time )/1e9)-1;
 	fprintf(fd,"%f\n",tot_time);
-	printf("Rx Worker %d finished with %d redundant replies \n",i,redundnacy_counter);
+	printf("Rx Worker %d finished with %d redundant replies \n",i,redundancy_counter);
 	close(args->sock);
 	fclose(fd);
 }
@@ -268,7 +268,7 @@ int main(int argc, char *argv[]) {
   }
   initialize_filter_client();
   pthread_mutex_lock(&lock_filter);
-  for (int i = 0; i < MAX_REQUESTS; i++) redundnacy_filter[i] = false;
+  for (int i = 0; i < MAX_REQUESTS; i++) redundancy_filter[i] = false;
   pthread_mutex_unlock(&lock_filter);
 
 	int SERVER_ID = get_server_id(interface);
@@ -325,9 +325,12 @@ int main(int argc, char *argv[]) {
 	for(int i=0;i<NUM_WORKERS;i++) global_pkt_counter += local_pkt_counter[i];
 	double tot_time = ((get_cur_ns() - elapsed_time )/1e9)-1;
 	double throughput = global_pkt_counter  / tot_time ;
+	double loss_rate = (1.0 - (double)global_pkt_counter / ((double)TARGET_QPS * (double)TIME_EXP)) * 100.0;
+	if (loss_rate < 0) loss_rate = 0; /* clip rounding noise to a non-negative percentage */
 	printf("Total time: %f seconds \n", tot_time);
 	printf("Total received pkts: %d \n", global_pkt_counter);
 	printf("Rx Throughput: %d RPS \n", (int)throughput);
-  free(redundnacy_filter);
+	printf("Packet loss rate: %f \n", loss_rate);
+  free(redundancy_filter);
 	return 0;
 }

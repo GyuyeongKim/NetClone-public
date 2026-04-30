@@ -359,7 +359,8 @@ do {
 
 This approach is adapted from the [RackSched artifact](https://github.com/netx-repo/RackSched/blob/master/server_code/shinjuku/dp/core/worker.c) (lines 121-125).
 
-The divisor value controls runtime accuracy and **must be calibrated for your environment**:
+The divisor controls how many `nop` iterations correspond to one
+nanosecond of work, and **must be calibrated for your environment**:
 
 | Linux Kernel | Calibrated Value |
 |-------------|-----------------|
@@ -380,7 +381,71 @@ do {
 printf("%lu\n", (get_cur_ns() - start));
 ```
 
-If logged latency is unexpectedly high or low, adjust this value accordingly.
+If logged latency is unexpectedly high or low, adjust the divisor
+accordingly.
+
+### Why the divisor varies across environments
+
+The label "Linux Kernel" in the table above is convenient but
+slightly misleading — what actually drives the divisor is how many
+CPU cycles one iteration of the `do { nop; i++; } while (...)` loop
+takes on a given machine, which depends on several factors:
+
+- **CPU clock frequency and microarchitecture.**  A 5 GHz CPU with
+  high IPC retires the loop body in fewer wall-clock nanoseconds
+  than a 3 GHz part with the same instruction stream, so it needs a
+  larger divisor to spend the same `run_ns` per request.  Turbo
+  boost, P-state policy, and thermal throttling all shift this
+  number on the same physical machine.
+- **Compiler / optimisation level.**  The loop body the compiler
+  emits (whether it unrolls, register-allocates `i`, or fuses the
+  comparison) directly changes cycles per iteration; switching gcc
+  versions or `-O` flags is enough to invalidate the calibration.
+- **Speculative-execution mitigations and CPU governors.**  Recent
+  kernels enable additional Spectre / MDS / RetBleed mitigations
+  by default and ship a different default `cpufreq` governor
+  (`schedutil` instead of `ondemand` on many distros).  These
+  settings change indirect-branch and frequency-scaling overhead
+  in the busy-loop and explain most of the apparent "kernel
+  dependence" — two of our test machines that happened to run
+  different kernel versions produced 0.197 vs. 0.64 not because of
+  the kernel as such, but because the combined effect of those
+  defaults plus the CPU change moved cycles per iteration.
+
+In short: re-calibrate per machine (and after any kernel /
+compiler / mitigation change) using the snippet above, rather than
+copying the table verbatim.
+
+### More robust alternatives (not used in this artifact)
+
+The busy-loop calibration is fragile by nature.  Two approaches
+make the simulated work duration insensitive to the loop's cycle
+count, at the cost of small accuracy or implementation tradeoffs:
+
+1. **Time-based spin.**  Replace the cycle-count guard with a
+   wall-clock deadline:
+   ```c
+   uint64_t deadline = get_cur_ns() + run_ns;
+   while (get_cur_ns() < deadline) asm volatile ("nop");
+   ```
+   No divisor, no per-machine calibration.  The cost is one
+   `clock_gettime` per loop iteration (~30 ns on Linux), so the
+   accuracy floor is several tens of nanoseconds — fine for the
+   25 µs+ RPCs this artifact targets, but unsuitable for sub-µs
+   simulated work.
+2. **Auto-calibration at startup.**  Run the existing busy-loop
+   once with a fixed `run_ns` (e.g. 10 000), measure the elapsed
+   wall-clock time, derive the divisor from the ratio, and use
+   that value for the rest of the run.  Keeps the published
+   busy-loop semantics; only the constant changes.
+
+> **Note:** the published NetClone numbers were collected using the
+> original busy-loop with the manually-calibrated divisors above,
+> not either of these alternatives.  We document the alternatives
+> here so users porting the artifact to new hardware know what
+> their options are if the manual-calibration workflow becomes a
+> nuisance, but switching to them will produce results that are no
+> longer bit-for-bit comparable to the SIGCOMM '23 numbers.
 
 ## Citation
 
